@@ -12,7 +12,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func testinsert(i_count int, b_count int, dbname string) {
+func testinsert(i_count int, b_count int, dbname string, c_count int) {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.Llongfile)
 
 	// basepath := "/dev/shm"
@@ -27,7 +27,7 @@ func testinsert(i_count int, b_count int, dbname string) {
 	}
 	defer db.Close()
 
-	column_count := 50
+	column_count := c_count
 	column_name := make([]string, 0)
 	value_name := make([]string, 0)
 	for i := 0; i < column_count; i++ {
@@ -95,7 +95,6 @@ func testinsert(i_count int, b_count int, dbname string) {
 	}
 	tx.Commit()
 	log.Printf("end insert %s, row count is %v, use time is %v", dbname, insert_count, time.Since(insert_begin))
-
 }
 
 func testquery(i_count int, b_count int, dbname string, c_count int) {
