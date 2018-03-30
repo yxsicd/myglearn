@@ -73,7 +73,7 @@ func testinsert(i_count int, b_count int, dbname string, c_count int) {
 	}
 	defer stmt1.Close()
 
-	insert_begin := time.Now()
+	// insert_begin := time.Now()
 	// log.Printf("begin insert row count is %v", insert_count)
 
 	for i := 0; i < insert_count; i++ {
@@ -94,13 +94,13 @@ func testinsert(i_count int, b_count int, dbname string, c_count int) {
 		// }
 	}
 	tx.Commit()
-	log.Printf("end insert %s, row count is %v, use time is %v", dbname, insert_count, time.Since(insert_begin))
+	// log.Printf("end insert %s, row count is %v, use time is %v", dbname, insert_count, time.Since(insert_begin))
 }
 
 func testquery(i_count int, b_count int, dbname string, c_count int) {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.Llongfile)
 
-	// basepath := "/dev/shm"
+	// basepath := "/dev/shm/"
 	basepath := "./target/"
 
 	dbpath := path.Join(basepath, dbname)
@@ -120,7 +120,7 @@ func testquery(i_count int, b_count int, dbname string, c_count int) {
 	defer rows.Close()
 
 	count := 0
-	query_time := time.Now()
+	// query_time := time.Now()
 	// log.Printf("begin query row count is %v", count)
 	for rows.Next() {
 		value_list := make([]interface{}, 0)
@@ -134,7 +134,7 @@ func testquery(i_count int, b_count int, dbname string, c_count int) {
 		}
 		count++
 	}
-	log.Printf("end query %s, row count is %v, query use time is %v", dbname, count, time.Since(query_time))
+	// log.Printf("end query %s, row count is %v, query use time is %v", dbname, count, time.Since(query_time))
 
 	err = rows.Err()
 	if err != nil {
@@ -142,13 +142,14 @@ func testquery(i_count int, b_count int, dbname string, c_count int) {
 	}
 }
 
-func main() {
+func testp(t_count int, pcount int) {
 	lockchan := make(chan int, 4)
 
-	p_count := 4
-	i_count := 500
-	b_count := 5
+	p_count := pcount
+	i_count := t_count / p_count
+	b_count := 10
 	c_count := 50
+	all_count := float64(p_count * i_count * b_count)
 
 	begin_time := time.Now()
 	for i := 0; i < p_count; i++ {
@@ -161,7 +162,10 @@ func main() {
 	for i := 0; i < p_count; i++ {
 		<-lockchan
 	}
-	log.Printf("insert done!, all insert count is %v, %v", p_count*i_count*b_count, time.Since(begin_time))
+
+	user_time := float64(time.Since(begin_time).Nanoseconds()) / 1000000000
+	log.Printf("---------------------------------\n")
+	log.Printf("%v insert done!, all insert count is %v, %v", p_count, all_count, all_count/user_time)
 
 	begin_time_query := time.Now()
 	for i := 0; i < p_count; i++ {
@@ -174,5 +178,12 @@ func main() {
 	for i := 0; i < p_count; i++ {
 		<-lockchan
 	}
-	log.Printf("insert done!, all insert count is %v, %v", p_count*i_count*b_count, time.Since(begin_time_query))
+	user_time = float64(time.Since(begin_time_query).Nanoseconds()) / 1000000000
+	log.Printf("%v query done!, all insert count is %v, %v", p_count, all_count, all_count/user_time)
+}
+
+func main() {
+	for i := 1; i < 20; i++ {
+		testp(2048, i)
+	}
 }
