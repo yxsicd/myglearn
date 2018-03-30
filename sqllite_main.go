@@ -12,11 +12,11 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func testinsert(insertcount int, dbname string) {
+func testinsert(i_count int, b_count int, dbname string) {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.Llongfile)
 
 	// basepath := "/dev/shm"
-	basepath := "./test/"
+	basepath := "./target/"
 
 	dbpath := path.Join(basepath, dbname)
 
@@ -56,8 +56,8 @@ func testinsert(insertcount int, dbname string) {
 	cvalue := strings.Join(value_name, ",")
 
 	batch_values := make([]string, 0)
-	batch_count := 5
-	insert_count := insertcount
+	batch_count := b_count
+	insert_count := i_count
 	for b := 0; b < batch_count; b++ {
 		batch_values = append(batch_values, fmt.Sprintf("(%s)", cvalue))
 	}
@@ -96,6 +96,24 @@ func testinsert(insertcount int, dbname string) {
 	tx.Commit()
 	log.Printf("end insert %s, row count is %v, use time is %v", dbname, insert_count, time.Since(insert_begin))
 
+}
+
+func testquery(i_count int, b_count int, dbname string, c_count int) {
+	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.Llongfile)
+
+	// basepath := "/dev/shm"
+	basepath := "./target/"
+
+	dbpath := path.Join(basepath, dbname)
+
+	// os.Remove(dbpath)
+	db, err := sql.Open("sqlite3", dbpath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	column_count := c_count
 	rows, err := db.Query("select * from _0")
 	if err != nil {
 		log.Fatal(err)
@@ -115,12 +133,6 @@ func testinsert(insertcount int, dbname string) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		if count == 0 {
-			// for i, v := range value_list {
-			// 	// mv := (*v).(string)
-			// 	// fmt.Printf("i=%v,v=%s ", i, *(v.(*string)))
-			// }
-		}
 		count++
 	}
 	log.Printf("end query %s, row count is %v, query use time is %v", dbname, count, time.Since(query_time))
@@ -129,17 +141,20 @@ func testinsert(insertcount int, dbname string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 }
 
 func main() {
 	lockchan := make(chan int, 4)
 
-	p_count := 6
+	p_count := 4
+	i_count := 500
+	b_count := 5
+	c_count := 50
 
+	begin_time := time.Now()
 	for i := 0; i < p_count; i++ {
 		go func(dbindex int) {
-			testinsert(4000, fmt.Sprintf("%v.db", dbindex))
+			testinsert(i_count, b_count, fmt.Sprintf("%v.db", dbindex), c_count)
 			lockchan <- 1
 		}(i)
 	}
@@ -147,5 +162,18 @@ func main() {
 	for i := 0; i < p_count; i++ {
 		<-lockchan
 	}
-	log.Printf("insert done!")
+	log.Printf("insert done!, all insert count is %v, %v", p_count*i_count*b_count, time.Since(begin_time))
+
+	begin_time_query := time.Now()
+	for i := 0; i < p_count; i++ {
+		go func(dbindex int) {
+			testquery(i_count, b_count, fmt.Sprintf("%v.db", dbindex), c_count)
+			lockchan <- 1
+		}(i)
+	}
+
+	for i := 0; i < p_count; i++ {
+		<-lockchan
+	}
+	log.Printf("insert done!, all insert count is %v, %v", p_count*i_count*b_count, time.Since(begin_time_query))
 }
