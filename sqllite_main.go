@@ -15,8 +15,8 @@ import (
 func testinsert(insertcount int, dbname string) {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.Llongfile)
 
-	basepath := "/dev/shm"
-	// basepath := "./test/"
+	// basepath := "/dev/shm"
+	basepath := "./test/"
 
 	dbpath := path.Join(basepath, dbname)
 
@@ -133,10 +133,9 @@ func testinsert(insertcount int, dbname string) {
 }
 
 func main() {
-
 	lockchan := make(chan int, 4)
 
-	p_count := 4
+	p_count := 6
 
 	for i := 0; i < p_count; i++ {
 		go func(dbindex int) {
