@@ -21,12 +21,12 @@ func testinsert(i_count int, b_count int, dbname string, c_count int) {
 	dbpath := path.Join(basepath, dbname)
 
 	os.Remove(dbpath)
-	db, err := sql.Open("sqlite3", dbpath)
+	db, err := sql.Open("sqlite3", dbpath+"?cache=shared&mode=rwc")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
-
+	db.Exec("PRAGMA journal_mode=WAL;")
 	column_count := c_count
 	column_name := make([]string, 0)
 	value_name := make([]string, 0)
@@ -73,7 +73,7 @@ func testinsert(i_count int, b_count int, dbname string, c_count int) {
 	}
 	defer stmt1.Close()
 
-	// insert_begin := time.Now()
+	insert_begin := time.Now()
 	// log.Printf("begin insert row count is %v", insert_count)
 
 	for i := 0; i < insert_count; i++ {
@@ -94,7 +94,7 @@ func testinsert(i_count int, b_count int, dbname string, c_count int) {
 		// }
 	}
 	tx.Commit()
-	// log.Printf("end insert %s, row count is %v, use time is %v", dbname, insert_count, time.Since(insert_begin))
+	log.Printf("end insert %s, row count is %v, use time is %v", dbname, insert_count, time.Since(insert_begin))
 }
 
 func testquery(i_count int, b_count int, dbname string, c_count int) {
@@ -106,12 +106,12 @@ func testquery(i_count int, b_count int, dbname string, c_count int) {
 	dbpath := path.Join(basepath, dbname)
 
 	// os.Remove(dbpath)
-	db, err := sql.Open("sqlite3", dbpath)
+	db, err := sql.Open("sqlite3", dbpath+"?cache=shared&mode=rwc")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
-
+	db.Exec("PRAGMA journal_mode=WAL;")
 	column_count := c_count
 	rows, err := db.Query("select * from _0")
 	if err != nil {
@@ -120,7 +120,7 @@ func testquery(i_count int, b_count int, dbname string, c_count int) {
 	defer rows.Close()
 
 	count := 0
-	// query_time := time.Now()
+	query_time := time.Now()
 	// log.Printf("begin query row count is %v", count)
 	for rows.Next() {
 		value_list := make([]interface{}, 0)
@@ -134,7 +134,7 @@ func testquery(i_count int, b_count int, dbname string, c_count int) {
 		}
 		count++
 	}
-	// log.Printf("end query %s, row count is %v, query use time is %v", dbname, count, time.Since(query_time))
+	log.Printf("end query %s, row count is %v, query use time is %v", dbname, count, time.Since(query_time))
 
 	err = rows.Err()
 	if err != nil {
@@ -148,7 +148,7 @@ func testp(t_count int, pcount int) {
 	p_count := pcount
 	i_count := t_count / p_count
 	b_count := 10
-	c_count := 50
+	c_count := 15
 	all_count := float64(p_count * i_count * b_count)
 
 	begin_time := time.Now()
@@ -183,7 +183,7 @@ func testp(t_count int, pcount int) {
 }
 
 func main() {
-	for i := 1; i < 20; i++ {
-		testp(2048, i)
+	for i := 1; i < 6; i++ {
+		testp(8192, i)
 	}
 }
