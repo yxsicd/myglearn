@@ -27,15 +27,14 @@ func getDB(dbname string) *sql.DB {
 	dblock.RLock()
 	db, ok := dbmap[dbname]
 	dblock.RUnlock()
-	if ok {
-		return db
-	} else {
+	if !ok {
 		dblock.Lock()
 		newdb := initdb(dbname)
 		dbmap[dbname] = newdb
 		dblock.Unlock()
 		return newdb
 	}
+	return db
 }
 
 func initdb(dbname string) *sql.DB {
