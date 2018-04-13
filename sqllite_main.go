@@ -17,16 +17,20 @@ func testinsert(i_count int, b_count int, dbname string, c_count int) {
 
 	// basepath := "/dev/shm"
 	basepath := "./target/"
+	// filebasepath := "./target/"
 
 	dbpath := path.Join(basepath, dbname)
+	// filedbpath := path.Join(filebasepath, dbname)
 
 	os.Remove(dbpath)
+	// os.Remove(filedbpath)
+
 	db, err := sql.Open("sqlite3", dbpath+"?cache=shared&mode=rwc")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	db.Exec("PRAGMA journal_mode=WAL;")
+	// db.Exec("PRAGMA journal_mode=WAL;")
 	column_count := c_count
 	column_name := make([]string, 0)
 	value_name := make([]string, 0)
@@ -37,10 +41,13 @@ func testinsert(i_count int, b_count int, dbname string, c_count int) {
 
 	sqlStmt := fmt.Sprintf(`
 	create table _0 ( %s );
-	create table _2 ( %s );
+	attach database ":memory:" as "mem";
+	create table mem._2 ( %s );
 	delete from _0;
-	delete from _2;
-	
+	delete from mem._2;
+	create index id0_index on _0(_0,_1);
+	create index mem.id2_index on _2(_0,_1);
+		
 	`, strings.Join(column_name, ","), strings.Join(column_name, ","))
 	_, err = db.Exec(sqlStmt)
 	if err != nil {
@@ -63,7 +70,7 @@ func testinsert(i_count int, b_count int, dbname string, c_count int) {
 	}
 	batch_all_values := strings.Join(batch_values, ",")
 
-	psql_1 := fmt.Sprintf("insert into _0 (%s) values %s ;", cname, batch_all_values)
+	psql_1 := fmt.Sprintf("insert into mem._2 (%s) values %s ;", cname, batch_all_values)
 	// psql_2 := fmt.Sprintf("insert into _2 (%s) values %s ;", cname, batch_all_values)
 	// log.Printf("psql is %s", psql_1)
 	stmt1, err := tx.Prepare(psql_1)
@@ -80,7 +87,8 @@ func testinsert(i_count int, b_count int, dbname string, c_count int) {
 		value_list := make([]interface{}, 0)
 		for j := 0; j < column_count; j++ {
 			for b := 0; b < batch_count; b++ {
-				value_list = append(value_list, fmt.Sprintf("value-%v-%v-%v", i, j, b))
+				// value_list = append(value_list, fmt.Sprintf("value-%v-%v-%v", i, j, b))
+				value_list = append(value_list, i)
 			}
 		}
 
@@ -93,8 +101,24 @@ func testinsert(i_count int, b_count int, dbname string, c_count int) {
 		// 	log.Fatal(err)
 		// }
 	}
+	insert_use := time.Since(insert_begin)
+
+	copy_begin := time.Now()
+	stmt2, err := tx.Prepare("insert into _0 select * from mem._2;")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stmt2.Close()
+	// stmt2.Exec()
+	stmt2.Exec()
 	tx.Commit()
-	log.Printf("end insert %s, row count is %v, use time is %v", dbname, insert_count, time.Since(insert_begin))
+	// targetdb, err := os.Create(filedbpath)
+	// srcdb, err := os.Open(dbpath)
+	// io.Copy(targetdb, srcdb)
+	// srcdb.Close()
+	// targetdb.Close()
+	log.Printf("end insert %s, row count is %v, use time is %v, copy time is %v", dbname, insert_count*batch_count, insert_use, time.Since(copy_begin))
+
 }
 
 func testquery(i_count int, b_count int, dbname string, c_count int) {
@@ -111,9 +135,9 @@ func testquery(i_count int, b_count int, dbname string, c_count int) {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	db.Exec("PRAGMA journal_mode=WAL;")
+	// db.Exec("PRAGMA journal_mode=WAL;")
 	column_count := c_count
-	rows, err := db.Query("select * from _0")
+	rows, err := db.Query("select * from _0;")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -147,8 +171,8 @@ func testp(t_count int, pcount int) {
 
 	p_count := pcount
 	i_count := t_count / p_count
-	b_count := 10
-	c_count := 15
+	b_count := 15
+	c_count := 50
 	all_count := float64(p_count * i_count * b_count)
 
 	begin_time := time.Now()
@@ -184,6 +208,6 @@ func testp(t_count int, pcount int) {
 
 func main() {
 	for i := 1; i < 6; i++ {
-		testp(8192, i)
+		testp(1024, i)
 	}
 }
