@@ -12,7 +12,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func testinsert(i_count int, b_count int, dbname string, c_count int) {
+func testinsert(i_count int, b_count int, dbname string, c_count int, db_index int) {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.Llongfile)
 
 	// basepath := "/dev/shm"
@@ -83,16 +83,25 @@ func testinsert(i_count int, b_count int, dbname string, c_count int) {
 	insert_begin := time.Now()
 	// log.Printf("begin insert row count is %v", insert_count)
 
+	all_time := float64(0)
+
 	for i := 0; i < insert_count; i++ {
 		value_list := make([]interface{}, 0)
-		for j := 0; j < column_count; j++ {
-			for b := 0; b < batch_count; b++ {
+		for b := 0; b < batch_count; b++ {
+			ivalue := i*batch_count + b + db_index*(insert_count*batch_count)
+			for j := 0; j < column_count; j++ {
 				// value_list = append(value_list, fmt.Sprintf("value-%v-%v-%v", i, j, b))
-				value_list = append(value_list, i)
+				// ivalue := fmt.Sprintf("value-%v-%v-%v", i, j, b)
+
+				value_list = append(value_list, ivalue)
+
+				// value_list = append(value_list, i)
 			}
 		}
-
+		exe_time := time.Now()
 		_, err = stmt1.Exec(value_list[:]...)
+		exe_use_time := time.Since(exe_time)
+		all_time += float64(exe_use_time.Nanoseconds())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -102,6 +111,11 @@ func testinsert(i_count int, b_count int, dbname string, c_count int) {
 		// }
 	}
 	insert_use := time.Since(insert_begin)
+	// insert_use_time := float64(insert_use.Nanoseconds()) / 1000000000
+	insert_use_time := all_time / 1000000000
+	allinsert_count := insert_count * batch_count
+	insert_speed := float64(allinsert_count) / insert_use_time
+	log.Printf("end insert %s, row count is %v, use time is %v, insert_speed is %v", dbname, allinsert_count, insert_use, insert_speed)
 
 	copy_begin := time.Now()
 	stmt2, err := tx.Prepare("insert into _0 select * from mem._2;")
@@ -117,7 +131,13 @@ func testinsert(i_count int, b_count int, dbname string, c_count int) {
 	// io.Copy(targetdb, srcdb)
 	// srcdb.Close()
 	// targetdb.Close()
-	log.Printf("end insert %s, row count is %v, use time is %v, copy time is %v", dbname, insert_count*batch_count, insert_use, time.Since(copy_begin))
+
+	copy_time := time.Since(copy_begin)
+	copy_use_time := float64(copy_time.Nanoseconds()) / 1000000000
+	copy_count := insert_count * batch_count
+	copy_speed := float64(copy_count) / copy_use_time
+
+	log.Printf("end insert %s, row count is %v, use time is %v, copy time is %v, copy_speed is %v", dbname, copy_count, insert_use, copy_time, copy_speed)
 
 }
 
@@ -136,29 +156,35 @@ func testquery(i_count int, b_count int, dbname string, c_count int) {
 	}
 	defer db.Close()
 	// db.Exec("PRAGMA journal_mode=WAL;")
+	// column_count := c_count
+	// rows, err := db.Query("select * from _0;")
+	// rows, err := db.Query("select * from _0 where _1 like '%381%' ")
+
 	column_count := c_count
-	rows, err := db.Query("select * from _0;")
+
+	query_begin_time := time.Now()
+	rows, err := db.Query("select * from _0 where _3%7=3 and _3%5=4 order by _3%8 limit 1 ")
+
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer rows.Close()
-
 	count := 0
-	query_time := time.Now()
+	scan_begin_time := time.Now()
 	// log.Printf("begin query row count is %v", count)
 	for rows.Next() {
-		value_list := make([]interface{}, 0)
-		for j := 0; j < column_count; j++ {
-			var v string
-			value_list = append(value_list, &v)
-		}
-		err = rows.Scan(value_list...)
-		if err != nil {
-			log.Fatal(err)
-		}
+		// value_list := make([]interface{}, 0)
+		// for j := 0; j < column_count; j++ {
+		// 	var v string
+		// 	value_list = append(value_list, &v)
+		// }
+		// err = rows.Scan(value_list...)
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
 		count++
 	}
-	log.Printf("end query %s, row count is %v, query use time is %v", dbname, count, time.Since(query_time))
+	log.Printf("column count is %v, scan query %s, row count is %v, scan use time is %v, query use time is %v", column_count, dbname, count, time.Since(scan_begin_time), scan_begin_time.Sub(query_begin_time))
 
 	err = rows.Err()
 	if err != nil {
@@ -171,14 +197,14 @@ func testp(t_count int, pcount int) {
 
 	p_count := pcount
 	i_count := t_count / p_count
-	b_count := 15
-	c_count := 50
+	b_count := 10
+	c_count := 30
 	all_count := float64(p_count * i_count * b_count)
 
 	begin_time := time.Now()
 	for i := 0; i < p_count; i++ {
 		go func(dbindex int) {
-			testinsert(i_count, b_count, fmt.Sprintf("%v.db", dbindex), c_count)
+			testinsert(i_count, b_count, fmt.Sprintf("%v.db", dbindex), c_count, dbindex)
 			lockchan <- 1
 		}(i)
 	}
@@ -202,12 +228,43 @@ func testp(t_count int, pcount int) {
 	for i := 0; i < p_count; i++ {
 		<-lockchan
 	}
-	user_time = float64(time.Since(begin_time_query).Nanoseconds()) / 1000000000
-	log.Printf("%v query done!, all insert count is %v, %v", p_count, all_count, all_count/user_time)
+	all_query_time := time.Since(begin_time_query)
+	user_time = float64(all_query_time.Nanoseconds()) / 1000000000
+	log.Printf("%v query done!, all query count is %v, speed is %v, use time is %v", p_count, all_count, all_count/user_time, all_query_time)
+}
+
+func testpq(t_count int, pcount int) {
+	lockchan := make(chan int, pcount)
+
+	p_count := pcount
+	i_count := t_count / p_count
+	b_count := 10
+	c_count := 30
+	all_count := float64(p_count * i_count * b_count)
+
+	begin_time_query := time.Now()
+	for i := 0; i < p_count; i++ {
+		go func(dbindex int) {
+			testquery(i_count, b_count, fmt.Sprintf("%v.db", dbindex), c_count)
+			lockchan <- 1
+		}(i)
+	}
+
+	for i := 0; i < p_count; i++ {
+		<-lockchan
+	}
+	all_query_time := time.Since(begin_time_query)
+	user_time := float64(all_query_time.Nanoseconds()) / 1000000000
+	log.Printf("%v query done!, all query count is %v, speed is %v, use time is %v", p_count, all_count, all_count/user_time, all_query_time)
 }
 
 func main() {
-	for i := 1; i < 6; i++ {
-		testp(1024, i)
-	}
+	// for i := 1; i < 9; i++ {
+	// 	testp(16000, i)
+	// }
+
+	// testp(144000, 1)
+	// testp(144000, 3)
+
+	testpq(144000, 60)
 }
