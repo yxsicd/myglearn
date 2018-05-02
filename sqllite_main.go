@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -141,7 +142,7 @@ func testinsert(i_count int, b_count int, dbname string, c_count int, db_index i
 
 }
 
-func testquery(i_count int, b_count int, dbname string, c_count int) {
+func testquery(i_count int, b_count int, dbname string, c_count int, querySql string) {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.Llongfile)
 
 	// basepath := "/dev/shm/"
@@ -160,10 +161,11 @@ func testquery(i_count int, b_count int, dbname string, c_count int) {
 	// rows, err := db.Query("select * from _0;")
 	// rows, err := db.Query("select * from _0 where _1 like '%381%' ")
 
-	column_count := c_count
+	column_count := 1
 
 	query_begin_time := time.Now()
-	rows, err := db.Query("select * from _0 where _3%7=3 and _3%5=4 order by _3%8 limit 1 ")
+	// rows, err := db.Query("select _1 from _0 where _3%11=1 and _3%13=4  and _1%4=1 order by _3%8  ")
+	rows, err := db.Query(querySql)
 
 	if err != nil {
 		log.Fatal(err)
@@ -220,7 +222,7 @@ func testp(t_count int, pcount int) {
 	begin_time_query := time.Now()
 	for i := 0; i < p_count; i++ {
 		go func(dbindex int) {
-			testquery(i_count, b_count, fmt.Sprintf("%v.db", dbindex), c_count)
+			testquery(i_count, b_count, fmt.Sprintf("%v.db", dbindex), c_count, "select * from _0 limit 10")
 			lockchan <- 1
 		}(i)
 	}
@@ -233,7 +235,7 @@ func testp(t_count int, pcount int) {
 	log.Printf("%v query done!, all query count is %v, speed is %v, use time is %v", p_count, all_count, all_count/user_time, all_query_time)
 }
 
-func testpq(t_count int, pcount int) {
+func testpq(t_count int, pcount int, querySql string) {
 	lockchan := make(chan int, pcount)
 
 	p_count := pcount
@@ -244,10 +246,10 @@ func testpq(t_count int, pcount int) {
 
 	begin_time_query := time.Now()
 	for i := 0; i < p_count; i++ {
-		go func(dbindex int) {
-			testquery(i_count, b_count, fmt.Sprintf("%v.db", dbindex), c_count)
+		go func(dbindex int, querySql string) {
+			testquery(i_count, b_count, fmt.Sprintf("%v.db", dbindex), c_count, querySql)
 			lockchan <- 1
-		}(i)
+		}(i, querySql)
 	}
 
 	for i := 0; i < p_count; i++ {
@@ -259,12 +261,23 @@ func testpq(t_count int, pcount int) {
 }
 
 func main() {
+	mode := flag.String("m", "r", "mode")
+	sql := flag.String("s", "select * from _0 limit 100", "sql")
+	threadCount := flag.Int("t", 4, "query ThreadCount")
+	allrowCount := flag.Int("r", 144000, "allrowCount")
+
+	flag.Parse()
 	// for i := 1; i < 9; i++ {
 	// 	testp(16000, i)
 	// }
 
 	// testp(144000, 1)
 	// testp(144000, 3)
+	// testp(14400, 64)
+	if *mode == "w" {
+		testp(*allrowCount, *threadCount)
+	} else {
+		testpq(*allrowCount, *threadCount, *sql)
+	}
 
-	testpq(144000, 60)
 }
