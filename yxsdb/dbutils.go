@@ -59,12 +59,42 @@ func GetDatabaseMap(db *sql.DB) map[string]string {
 	return retmap
 }
 
+func isAttachedDatabase(db *sql.DB, database int) bool {
+	retMap := GetDatabaseMap(db)
+	_, ok := retMap[GetDatabaseName(database)]
+	return ok
+}
+
 func GetAttachDatabaseSql(baseDir string, database int, isMemory bool) string {
 	mode := ""
 	if isMemory {
 		mode = "&mode=memory"
 	}
 	return fmt.Sprintf(`attach database "file:%s/%s.db?cache=shared%s" as "%s";`, baseDir, GetDatabaseName(database), mode, GetDatabaseName(database))
+}
+
+func GetDetachDatabaseSql(database int) string {
+	return fmt.Sprintf(`detach database "%s";`, GetDatabaseName(database))
+}
+
+func AttachDatabase(basePath string, db *sql.DB, database int, isMemory bool) error {
+	if !isAttachedDatabase(db, database) {
+		_, err := db.Exec(GetAttachDatabaseSql(basePath, database, isMemory))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func DetachDatabase(db *sql.DB, database int) error {
+	if isAttachedDatabase(db, database) {
+		_, err := db.Exec(GetDetachDatabaseSql(database))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func CreateDatabase(basePath string, databases []int, memoryDatabase []int) (*sql.DB, error) {

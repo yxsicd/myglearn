@@ -25,14 +25,25 @@ func TestCreateDatabase(t *testing.T) {
 }
 
 func TestGetDatabaseList(t *testing.T) {
-	db, err := yxsdb.CreateDatabase("target/0/", []int{0, 1, 2, 3}, []int{4, 5, 6, 7})
+	basePath := "target/0"
+	db, err := yxsdb.CreateDatabase(basePath, []int{0, 1, 2, 3}, []int{4, 5, 6, 7})
 	if err != nil {
 		t.Error(err)
 	}
+	yxsdb.DetachDatabase(db, 7)
+	yxsdb.AttachDatabase(basePath, db, 7, false)
+	yxsdb.AttachDatabase(basePath, db, 8, true)
+	yxsdb.DetachDatabase(db, 8)
+	yxsdb.AttachDatabase(basePath, db, 8, false)
 
 	dblist := yxsdb.GetDatabaseList(db)
 	for i, db := range dblist {
 		t.Logf("%v, name=%s, path=%s", i, db.Name, db.FilePath)
+	}
+
+	dbmap := yxsdb.GetDatabaseMap(db)
+	for k, v := range dbmap {
+		t.Logf("name=%s, path=%s", k, v)
 	}
 
 }
