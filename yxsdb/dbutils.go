@@ -6,6 +6,8 @@ import (
 	"os"
 	"path"
 	"strings"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func GetDatabaseTableName(database, tableName int) string {
@@ -43,7 +45,18 @@ func GetDatabaseList(db *sql.DB) []Database {
 			return databaseList
 		}
 		database := Database{Name: name, FilePath: path}
+		databaseList = append(databaseList, database)
 	}
+	return databaseList
+}
+
+func GetDatabaseMap(db *sql.DB) map[string]string {
+	retmap := make(map[string]string)
+	dbList := GetDatabaseList(db)
+	for _, db := range dbList {
+		retmap[db.Name] = db.FilePath
+	}
+	return retmap
 }
 
 func GetAttachDatabaseSql(baseDir string, database int, isMemory bool) string {
@@ -65,7 +78,7 @@ func CreateDatabase(basePath string, databases []int, memoryDatabase []int) (*sq
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite3", baseDir+"?cache=shared&mode=memory")
+	db, err := sql.Open("sqlite3", "file:"+baseDir+"?cache=shared&mode=memory")
 	if err != nil {
 		return db, err
 	}
