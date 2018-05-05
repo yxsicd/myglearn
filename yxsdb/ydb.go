@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -12,6 +13,9 @@ import (
 var (
 	producerMap     = make(map[string]*sarama.AsyncProducer)
 	producerMapLock = make(chan bool, 1)
+
+	consumerMap     = make(map[string]*sarama.Consumer)
+	consumerMapLock = make(chan bool, 1)
 )
 
 func createTopic(topicName string) {
@@ -51,6 +55,25 @@ func getProducer(name string) *sarama.AsyncProducer {
 		return &producer
 	} else {
 		return producer
+	}
+}
+
+func getConsumer(name string) *sarama.Consumer {
+	producerMapLock <- true
+	defer func() {
+		<-producerMapLock
+	}()
+
+	consumer, ok := consumerMap[name]
+	if !ok {
+		consumer, err := sarama.NewConsumer([]string{"localhost:9092"}, nil)
+		if err != nil {
+			panic(err)
+		}
+		consumerMap[name] = &consumer
+		return &consumer
+	} else {
+		return consumer
 	}
 }
 
@@ -141,16 +164,71 @@ func doTopicCreate(level1 int, level2 int) {
 			createTopic(topic)
 		}
 	}
+}
 
+func handleMessage(consumer *sarama.Consumer, topic string, handler func(msg *sarama.ConsumerMessage)) {
+
+	go func() {
+		partitionConsumer, err := (*consumer).ConsumePartition(topic, 0, sarama.OffsetOldest)
+		if err != nil {
+			panic(err)
+		}
+
+		for {
+			select {
+			case msg := <-partitionConsumer.Messages():
+				// log.Printf("Consumed message offset=%d, %s=%s", msg.Offset, msg.Key, msg.Value)
+				handler(msg)
+			}
+		}
+	}()
+}
+
+func addNode(level1, level2 int) {
+	nodeName := fmt.Sprintf("node-%v-%v", level1, level2)
+	topicName := fmt.Sprintf("nq-%v-%v", level1, level2)
+
+	nodeConsumer := getConsumer(nodeName)
+	handler := func(msg *sarama.ConsumerMessage) {
+		log.Printf("Node %s get message,%s=%s, offset=%v", nodeName, msg.Key, msg.Value, msg.Offset)
+	}
+	handleMessage(nodeConsumer, topicName, handler)
+}
+
+func addAllNode(maxLevel1, maxLevel2 int) {
+	for x := 0; x < maxLevel1; x++ {
+		for y := 0; y < maxLevel2; y++ {
+			addNode(x, y)
+		}
+	}
+}
+
+func getTopicName(id int64, maxLevel1, maxLevel2 int) string {
+	level1 := id % int64(maxLevel1)
+	level2 := id % int64(maxLevel2)
+	return fmt.Sprintf("nq-%v-%v", level1, level2)
 }
 
 func main() {
 	log.Printf("begin")
 
+	maxLevel1 := flag.Int("r1", 3, "maxLevel1")
+	maxLevel2 := flag.Int("r2", 5, "maxLevel2")
+	flag.Parse()
 	// doTopicCreate(3, 5)
-	// createTopic("noderequest")
+	createTopic("dbmeta")
+	createTopic("nodemeta")
+
 	// doProducer()
 	// doConsumer()
+	addAllNode(*maxLevel1, *maxLevel2)
 
+	masterP := getProducer("master")
+	log.Printf("masterP is %v", masterP)
+
+	for i := 0; i < 100; i++ {
+		//sendMessage(masterP, getTopicName(int64(i), *maxLevel1, *maxLevel2), "1", "create table _0(_0,_1,_2,_3)")
+	}
+	select {}
 	log.Printf("end")
 }
