@@ -207,11 +207,7 @@ func GetInsertSQL(database, tableName, batchCount, columnCount int) string {
 	return fmt.Sprintf("insert into %s values %s ", GetDatabaseTableName(database, tableName), GetBatchPrepareValuesSQL(batchCount, columnCount))
 }
 
-func BatchInsertRows(db *sql.DB, database, tableName, batchCount, columnsCount int, rows [][]interface{}) error {
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
+func batchInsertRows(tx *sql.Tx, database, tableName, batchCount, columnsCount int, rows [][]interface{}) error {
 	insertStmt, err := tx.Prepare(GetInsertSQL(database, tableName, batchCount, columnsCount))
 	if err != nil {
 		return err
@@ -231,5 +227,21 @@ func BatchInsertRows(db *sql.DB, database, tableName, batchCount, columnsCount i
 			nextInsertIndex = i + 1
 		}
 	}
-	return BatchInsertRows(db, database, tableName, 1, columnsCount, rows[nextInsertIndex:])
+	return batchInsertRows(tx, database, tableName, 1, columnsCount, rows[nextInsertIndex:])
+}
+
+func InsertRows(db *sql.DB, database, tableName, columnsCount int, rows [][]interface{}) error {
+	return BatchInsertRows(db, database, tableName, 5, columnsCount, rows)
+}
+
+func BatchInsertRows(db *sql.DB, database, tableName, batchCount, columnsCount int, rows [][]interface{}) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	err = batchInsertRows(tx, database, tableName, batchCount, columnsCount, rows)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }
