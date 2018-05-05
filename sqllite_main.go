@@ -262,7 +262,7 @@ func testpq(t_count int, pcount int, querySql string) {
 
 func main() {
 	mode := flag.String("m", "r", "mode")
-	sql := flag.String("s", "select * from _0 limit 100", "sql")
+	sql := flag.String("s", "select * from _0 limit 10", "sql")
 	threadCount := flag.Int("t", 4, "query ThreadCount")
 	allrowCount := flag.Int("r", 144000, "allrowCount")
 
