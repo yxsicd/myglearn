@@ -10,21 +10,20 @@ func TestGetName(t *testing.T) {
 	databaseName := yxsdb.GetDatabaseName(0)
 	tableName := yxsdb.GetTableName(4030)
 	databaseTableName := yxsdb.GetDatabaseTableName(0, 4030)
-	memoryDatabase := yxsdb.GetAttachDatabaseSql("target/data", 0, true)
-	diskDatabase := yxsdb.GetAttachDatabaseSql("target/data", 0, false)
+	memoryDatabase := yxsdb.GetAttachDatabaseSQL("target/data", 0, true)
+	diskDatabase := yxsdb.GetAttachDatabaseSQL("target/data", 0, false)
 
 	t.Logf("database=0, tableName=4030, test result:\n database=%s\n tableName=%s\n databaseTableName=%s\n memoryDatabase=%s\n diskDatabase=%s\n",
 		databaseName, tableName, databaseTableName, memoryDatabase, diskDatabase)
 }
 
 func TestCreateDatabase(t *testing.T) {
-	_, err := yxsdb.CreateDatabase("target/0/", []int{0, 1, 2, 3}, []int{4, 5, 6, 7})
+	_, err := yxsdb.CreateDatabase("target/data/0/", []int{0, 1, 2, 3}, []int{4, 5, 6, 7})
 	if err != nil {
 		t.Error(err)
 	}
 }
-
-func TestGetDatabaseList(t *testing.T) {
+func TestInitDatabase(t *testing.T) {
 	basePath := "target/0"
 	db, err := yxsdb.CreateDatabase(basePath, []int{0, 1, 2, 3}, []int{4, 5, 6, 7})
 	if err != nil {
@@ -46,4 +45,11 @@ func TestGetDatabaseList(t *testing.T) {
 		t.Logf("name=%s, path=%s", k, v)
 	}
 
+	t.Logf("CreateTable is %s", yxsdb.GetCreateTableSQL(0, 4030, []int{0, 1, 2, 3, 4, 5}, map[int]string{1: "", 2: ""}, map[int]string{0: ""}))
+	t.Logf("CreateTableIndex is %s", yxsdb.GetCreateTableIndexSQL(0, 4030, 0))
+	t.Logf("InitTableSql is %s", yxsdb.GetInitTableSQL(0, 4030, []int{0, 1, 2, 3, 4, 5}, map[int]string{0: "", 1: "", 2: ""}, map[int]string{0: ""}, []int{0, 1, 2, 3, 4, 5}))
+	err = yxsdb.InitTable(db, 0, 4030, []int{0, 1, 2, 3, 4, 5}, map[int]string{0: "", 1: "", 2: ""}, map[int]string{0: ""}, []int{0, 1, 2, 3, 4, 5})
+	if err != nil {
+		t.Error(err)
+	}
 }
