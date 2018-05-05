@@ -52,4 +52,6 @@ func TestInitDatabase(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	t.Logf("GetInsertSQL is %s", yxsdb.GetInsertSQL(0, 4030, 4, 3))
 }

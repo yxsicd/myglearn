@@ -186,3 +186,50 @@ func InitTable(db *sql.DB, database, tableName int, columns []int, numberColumnM
 	_, err := db.Exec(runSQL)
 	return err
 }
+
+func GetPrepareValuesSQL(columnCount int) string {
+	valueList := make([]string, 0)
+	for i := 0; i < columnCount; i++ {
+		valueList = append(valueList, fmt.Sprintf("?"))
+	}
+	return fmt.Sprintf("(%s)", strings.Join(valueList, ","))
+}
+
+func GetBatchPrepareValuesSQL(batchCount, columnCount int) string {
+	valueList := make([]string, 0)
+	for i := 0; i < batchCount; i++ {
+		valueList = append(valueList, GetPrepareValuesSQL(columnCount))
+	}
+	return fmt.Sprintf(" %s ", strings.Join(valueList, ","))
+}
+
+func GetInsertSQL(database, tableName, batchCount, columnCount int) string {
+	return fmt.Sprintf("insert into %s values %s ", GetDatabaseTableName(database, tableName), GetBatchPrepareValuesSQL(batchCount, columnCount))
+}
+
+func BatchInsertRows(db *sql.DB, database, tableName, batchCount, columnsCount int, rows [][]interface{}) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	insertStmt, err := tx.Prepare(GetInsertSQL(database, tableName, batchCount, columnsCount))
+	if err != nil {
+		return err
+	}
+	defer insertStmt.Close()
+
+	var batchRows []interface{}
+	nextInsertIndex := 0
+	for i, row := range rows {
+		batchRows = append(batchRows, row...)
+		if len(batchRows) == batchCount {
+			_, err := insertStmt.Exec(batchRows...)
+			if err != nil {
+				return err
+			}
+			batchRows = batchRows[:0]
+			nextInsertIndex = i + 1
+		}
+	}
+	return BatchInsertRows(db, database, tableName, 1, columnsCount, rows[nextInsertIndex:])
+}
