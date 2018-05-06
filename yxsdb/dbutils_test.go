@@ -1,6 +1,7 @@
 package yxsdb
 
 import (
+	"fmt"
 	"testing"
 	"yxsicd/yxsdb"
 )
@@ -24,7 +25,7 @@ func TestCreateDatabase(t *testing.T) {
 	}
 }
 func TestInitDatabase(t *testing.T) {
-	basePath := "target/0"
+	basePath := "target/data/0"
 	db, err := yxsdb.CreateDatabase(basePath, []int{0, 1, 2, 3}, []int{4, 5, 6, 7})
 	if err != nil {
 		t.Error(err)
@@ -53,5 +54,25 @@ func TestInitDatabase(t *testing.T) {
 		t.Error(err)
 	}
 
-	t.Logf("GetInsertSQL is %s", yxsdb.GetInsertSQL(0, 4030, 4, 3))
+	t.Logf("GetInsertSQL is %s", yxsdb.GetInsertSQL(0, 4030, 2, []int{0, 1, 2, 3, 4, 5}))
+	var rows [][]interface{}
+	for r := 0; r < 190; r++ {
+		var row []interface{}
+		for c := 0; c < 6; c++ {
+			if c == 0 {
+				row = append(row, r)
+			} else {
+				row = append(row, fmt.Sprintf("v-%v-%v", r, c))
+			}
+		}
+		rows = append(rows, row)
+	}
+	err = yxsdb.ClearTable(db, 0, 4030)
+	if err != nil {
+		t.Error(err)
+	}
+	err = yxsdb.BatchInsertRows(db, 0, 4030, 2, []int{0, 1, 2, 3, 4, 5}, rows)
+	if err != nil {
+		t.Error(err)
+	}
 }
