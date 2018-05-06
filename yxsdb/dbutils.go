@@ -99,8 +99,33 @@ func DetachDatabase(db *sql.DB, database int) error {
 	return nil
 }
 
-func CreateDatabase(basePath string, databases []int, memoryDatabase []int) (*sql.DB, error) {
+func InitAttachDatabase(basePath string, db *sql.DB, databases []int, memoryDatabase []int) (*sql.DB, error) {
+	baseDir := basePath
+	if strings.HasSuffix(strings.ToLower(baseDir), ".db") {
+		baseDir = path.Dir(basePath)
+	}
+	err := os.MkdirAll(baseDir, 0750)
+	if err != nil {
+		return nil, err
+	}
 
+	for _, diskdb := range databases {
+		err := AttachDatabase(baseDir, db, diskdb, false)
+		if err != nil {
+			return db, err
+		}
+	}
+
+	for _, memdb := range memoryDatabase {
+		err := AttachDatabase(baseDir, db, memdb, true)
+		if err != nil {
+			return db, err
+		}
+	}
+	return db, nil
+}
+
+func CreateDatabase(basePath string, databases []int, memoryDatabase []int) (*sql.DB, error) {
 	baseDir := basePath
 	if strings.HasSuffix(strings.ToLower(baseDir), ".db") {
 		baseDir = path.Dir(basePath)
@@ -114,22 +139,7 @@ func CreateDatabase(basePath string, databases []int, memoryDatabase []int) (*sq
 	if err != nil {
 		return db, err
 	}
-
-	for _, diskdb := range databases {
-		_, err := db.Exec(GetAttachDatabaseSQL(baseDir, diskdb, false))
-		if err != nil {
-			return db, err
-		}
-	}
-
-	for _, memdb := range memoryDatabase {
-		_, err := db.Exec(GetAttachDatabaseSQL(baseDir, memdb, true))
-		if err != nil {
-			return db, err
-		}
-	}
-
-	return db, nil
+	return InitAttachDatabase(basePath, db, databases, memoryDatabase)
 }
 
 func GetColumnName(column int) string {
