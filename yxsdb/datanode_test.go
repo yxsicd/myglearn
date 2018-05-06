@@ -44,14 +44,12 @@ func TestCreateTable(t *testing.T) {
 		rows = append(rows, row)
 	}
 
-	dbList := GetDatabaseList(db)
-	t.Logf("%v", dbList)
 	err = InsertRows(db, 0, 2010, columns, rows)
 	if err != nil {
 		t.Error(err)
 	}
 	retTable, err := QueryTable(db, "select * from _0._2010;")
-	retTable.RowsShowCount = 10
+	retTable.RowsShowCount = 3
 	if err != nil {
 		t.Error(err)
 	}
