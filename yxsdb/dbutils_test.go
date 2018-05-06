@@ -26,7 +26,7 @@ func TestCreateDatabase(t *testing.T) {
 }
 func TestInitDatabase(t *testing.T) {
 	basePath := "target/data/0"
-	db, err := yxsdb.CreateDatabase(basePath, []int{0, 1, 2, 3}, []int{4, 5, 6, 7})
+	db, err := yxsdb.CreateDatabase(basePath, []int{1, 2, 3}, []int{0, 4, 5, 6, 7})
 	if err != nil {
 		t.Error(err)
 	}
@@ -46,17 +46,19 @@ func TestInitDatabase(t *testing.T) {
 		t.Logf("name=%s, path=%s", k, v)
 	}
 
-	t.Logf("CreateTable is %s", yxsdb.GetCreateTableSQL(0, 4030, []int{0, 1, 2, 3, 4, 5}, map[int]string{1: "", 2: ""}, map[int]string{0: ""}))
+	columns := []int{0, 1, 2, 3, 4, 5}
+
+	t.Logf("CreateTable is %s", yxsdb.GetCreateTableSQL(0, 4030, columns, map[int]string{1: "", 2: ""}, map[int]string{0: ""}))
 	t.Logf("CreateTableIndex is %s", yxsdb.GetCreateTableIndexSQL(0, 4030, 0))
-	t.Logf("InitTableSql is %s", yxsdb.GetInitTableSQL(0, 4030, []int{0, 1, 2, 3, 4, 5}, map[int]string{0: "", 1: "", 2: ""}, map[int]string{0: ""}, []int{0, 1, 2, 3, 4, 5}))
-	err = yxsdb.InitTable(db, 0, 4030, []int{0, 1, 2, 3, 4, 5}, map[int]string{0: "", 1: "", 2: ""}, map[int]string{0: ""}, []int{0, 1, 2, 3, 4, 5})
+	t.Logf("InitTableSql is %s", yxsdb.GetInitTableSQL(0, 4030, columns, map[int]string{0: "", 1: "", 2: ""}, map[int]string{0: ""}, columns))
+	err = yxsdb.InitTable(db, 0, 4030, columns, map[int]string{0: "", 1: "", 2: ""}, map[int]string{0: ""}, columns)
 	if err != nil {
 		t.Error(err)
 	}
 
-	t.Logf("GetInsertSQL is %s", yxsdb.GetInsertSQL(0, 4030, 2, []int{0, 1, 2, 3, 4, 5}))
+	t.Logf("GetInsertSQL is %s", yxsdb.GetInsertSQL(0, 4030, 2, columns))
 	var rows [][]interface{}
-	for r := 0; r < 190; r++ {
+	for r := 0; r < 100; r++ {
 		var row []interface{}
 		for c := 0; c < 6; c++ {
 			if c == 0 {
@@ -71,8 +73,24 @@ func TestInitDatabase(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	err = yxsdb.BatchInsertRows(db, 0, 4030, 2, []int{0, 1, 2, 3, 4, 5}, rows)
+	err = yxsdb.BatchInsertRows(db, 0, 4030, 5, columns, rows)
 	if err != nil {
 		t.Error(err)
 	}
+
+	err = yxsdb.ClearTable(db, 0, 4030)
+	if err != nil {
+		t.Error(err)
+	}
+	err = yxsdb.InsertRows(db, 0, 4030, columns, rows[32:])
+	if err != nil {
+		t.Error(err)
+	}
+
+	table, err := yxsdb.QueryTable(db, "select * from _0._4030 order by _0 limit 20")
+	if err != nil {
+		t.Error(err)
+	}
+	table.RowsShowCount = 10
+	t.Log(table)
 }

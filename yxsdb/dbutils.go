@@ -2,9 +2,11 @@ package yxsdb
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -211,6 +213,14 @@ func GetColumnsSQL(columns []int) string {
 	return fmt.Sprintf(" (%s) ", strings.Join(valueList, ","))
 }
 
+func GetSelectColumnsSQL(columns []int) string {
+	valueList := make([]string, 0)
+	for _, v := range columns {
+		valueList = append(valueList, GetColumnName(v))
+	}
+	return fmt.Sprintf(" %s ", strings.Join(valueList, ","))
+}
+
 func GetInsertSQL(database, tableName, batchCount int, columns []int) string {
 	return fmt.Sprintf("insert into %s %s values %s ", GetDatabaseTableName(database, tableName), GetColumnsSQL(columns), GetBatchPrepareValuesSQL(batchCount, len(columns)))
 }
@@ -261,4 +271,79 @@ func BatchInsertRows(db *sql.DB, database, tableName, batchCount int, columns []
 func ClearTable(db *sql.DB, database, tableName int) error {
 	_, err := db.Exec(fmt.Sprintf("delete from %s", GetDatabaseTableName(database, tableName)))
 	return err
+}
+
+type CacheTable struct {
+	Columns       []int
+	ColumnNames   []string
+	Rows          [][]interface{}
+	RowsShowCount int
+}
+
+func (table *CacheTable) String() string {
+	showRows := table.Rows[:table.RowsShowCount]
+	var showStringRows [][]interface{}
+	for _, row := range showRows {
+		var stringRow []interface{}
+		for _, cell := range row {
+			showCell := cell
+			cellPoint := *(cell.(*interface{}))
+			bytea, ok := cellPoint.([]byte)
+			if ok {
+				showCell = fmt.Sprintf("%s", bytea)
+			}
+			stringRow = append(stringRow, showCell)
+		}
+		showStringRows = append(showStringRows, stringRow)
+	}
+
+	showRowsString, _ := json.Marshal(showStringRows)
+	showColums, _ := json.Marshal(table.Columns)
+	showColumnNames, _ := json.Marshal(table.ColumnNames)
+	retString := fmt.Sprintf(`Columns=%s,ColumnNames=%s,Rows=%s`,
+		showColums, showColumnNames, showRowsString)
+	return retString
+}
+
+func ParseColumnName(index int, columnName string) int {
+	intColumn := strings.Replace(columnName, "_", "", -1)
+	s, err := strconv.Atoi(intColumn)
+	if err != nil {
+		return s
+	} else {
+		return index
+	}
+}
+
+func QueryTable(db *sql.DB, querySQL string) (*CacheTable, error) {
+	var retTable CacheTable
+	rows, err := db.Query(querySQL)
+	if err != nil {
+		return &retTable, err
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return &retTable, err
+	}
+
+	for i, column := range columns {
+		retTable.Columns = append(retTable.Columns, ParseColumnName(i, column))
+		retTable.ColumnNames = append(retTable.ColumnNames, column)
+	}
+
+	for rows.Next() {
+		valueList := make([]interface{}, 0)
+		for _ = range columns {
+			var v interface{}
+			valueList = append(valueList, &v)
+		}
+		err = rows.Scan(valueList...)
+		if err != nil {
+			return &retTable, err
+		}
+		retTable.Rows = append(retTable.Rows, valueList)
+	}
+	return &retTable, nil
 }
