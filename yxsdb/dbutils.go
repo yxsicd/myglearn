@@ -281,7 +281,13 @@ type CacheTable struct {
 }
 
 func (table *CacheTable) String() string {
-	showRows := table.Rows[:table.RowsShowCount]
+
+	lastRow := len(table.Rows)
+	if table.RowsShowCount < lastRow {
+		lastRow = table.RowsShowCount
+	}
+
+	showRows := table.Rows[:lastRow]
 	var showStringRows [][]interface{}
 	for _, row := range showRows {
 		var stringRow []interface{}

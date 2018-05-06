@@ -87,7 +87,7 @@ func TestInitDatabase(t *testing.T) {
 		t.Error(err)
 	}
 
-	table, err := yxsdb.QueryTable(db, "select * from _0._4030 order by _0 limit 20")
+	table, err := yxsdb.QueryTable(db, "select count(_0) as xsadf from _0._4030 order by _0 ")
 	if err != nil {
 		t.Error(err)
 	}
