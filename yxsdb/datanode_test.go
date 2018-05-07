@@ -22,9 +22,9 @@ func InitNode(t *testing.T) *DataNode {
 	for i := 0; i < 8; i++ {
 		cnode := DataNode{
 			ID:             i,
-			BaseDir:        path.Join(node.BaseDir, fmt.Sprintf("%v", node.ID), "nodes", fmt.Sprintf("%v", i)),
-			DiskDatabase:   []int{0},
-			MemoryDatabase: []int{1, 2, 3, 4, 5, 6, 7, 8, 9},
+			BaseDir:        path.Join(node.BaseDir, fmt.Sprintf("%v", node.ID), "nodes"),
+			DiskDatabase:   []int{0, 1, 2, 3},
+			MemoryDatabase: []int{4, 5, 6, 7, 8, 9},
 			NodeLock:       make(chan bool, 1),
 			ConnectionPool: make(map[string]*sql.DB),
 			ParentNode:     &node,
