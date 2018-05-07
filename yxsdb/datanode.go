@@ -73,7 +73,7 @@ func (node *DataNode) InitNodeTable(database []int, tableName int, columns []int
 	return nil
 }
 
-func (node *DataNode) InitChildrenNodeTable(database []int, tableName int, columns []int, numberColumnMap map[int]string, keyColumnMap map[int]string, indexColumns []int) error {
+func (node *DataNode) InitCNodeTable(database []int, tableName int, columns []int, numberColumnMap map[int]string, keyColumnMap map[int]string, indexColumns []int) error {
 	node.NodeLock <- true
 	defer func() {
 		<-node.NodeLock

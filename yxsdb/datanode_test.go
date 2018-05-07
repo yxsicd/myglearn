@@ -40,7 +40,7 @@ func TestCreateTable(t *testing.T) {
 	ret, err := json.Marshal(*node)
 	t.Logf("node is %s", ret)
 	columns := []int{0, 1, 2, 3, 4, 5}
-	err = node.InitChildrenNodeTable([]int{0}, 2010, columns,
+	err = node.InitCNodeTable([]int{0}, 2010, columns,
 		map[int]string{0: "", 1: ""}, map[int]string{},
 		columns)
 	if err != nil {
