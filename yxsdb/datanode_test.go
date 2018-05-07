@@ -2,30 +2,45 @@ package yxsdb
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"path"
 	"testing"
 )
 
 func InitNode(t *testing.T) *DataNode {
+	var cnodes []*DataNode
 	node := DataNode{
 		ID:             1,
 		BaseDir:        "target/data",
-		DiskDatabase:   []int{0, 3, 4, 5},
-		MemoryDatabase: []int{1, 2},
+		DiskDatabase:   []int{0, 1, 2},
+		MemoryDatabase: []int{3, 4, 5, 6, 7, 8, 9},
 		NodeLock:       make(chan bool, 1),
 		ConnectionPool: make(map[string]*sql.DB),
 	}
+
+	for i := 0; i < 8; i++ {
+		cnode := DataNode{
+			ID:             i,
+			BaseDir:        path.Join(node.BaseDir, fmt.Sprintf("%v", node.ID), "nodes", fmt.Sprintf("%v", i)),
+			DiskDatabase:   []int{0},
+			MemoryDatabase: []int{1, 2, 3, 4, 5, 6, 7, 8, 9},
+			NodeLock:       make(chan bool, 1),
+			ConnectionPool: make(map[string]*sql.DB),
+			ParentNode:     &node,
+		}
+		cnodes = append(cnodes, &cnode)
+	}
+	node.ChildrenNode = cnodes
 	return &node
 }
 
 func TestCreateTable(t *testing.T) {
 	node := InitNode(t)
-	db, err := node.GetDB(2010)
-	if err != nil {
-		t.Error(err)
-	}
+	ret, err := json.Marshal(*node)
+	t.Logf("node is %s", ret)
 	columns := []int{0, 1, 2, 3, 4, 5}
-	err = InitTable(db, 0, 2010, columns,
+	err = node.InitChildrenNodeTable([]int{0}, 2010, columns,
 		map[int]string{0: "", 1: ""}, map[int]string{},
 		columns)
 	if err != nil {
@@ -43,7 +58,10 @@ func TestCreateTable(t *testing.T) {
 		}
 		rows = append(rows, row)
 	}
-
+	db, err := node.GetCNodeDB(0, 2010)
+	if err != nil {
+		t.Error(err)
+	}
 	err = InsertRows(db, 0, 2010, columns, rows)
 	if err != nil {
 		t.Error(err)
