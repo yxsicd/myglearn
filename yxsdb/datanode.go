@@ -7,6 +7,10 @@ import (
 	"path"
 )
 
+var (
+	globalID = 0
+)
+
 //DataNode Sqlite Data dir
 type DataNode struct {
 	ID              int
@@ -87,4 +91,72 @@ func (node *DataNode) InitCNodeTable(database []int, tableName int, columns []in
 		node.ChildrenNodeMap[cnode.ID] = cnode
 	}
 	return nil
+}
+
+func (node *DataNode) QueryNodeTable(tableName int, querySQL string, mergeSQL string) (*CacheTable, error) {
+
+	globalID++
+	queryID := globalID
+	queryDone := make(chan bool, len(node.ChildrenNode))
+	queryResult := make(chan *CacheTable, len(node.ChildrenNode))
+	allDone := make(chan bool, 1)
+	allDone <- true
+	for _, cnode := range node.ChildrenNode {
+		go func(queryNode *DataNode) {
+			queryDone <- true
+			defer func() {
+				<-queryDone
+			}()
+
+			db, err := queryNode.GetDB(tableName)
+			if err != nil {
+				return
+			}
+			retTable, err := QueryTable(db, querySQL)
+			if err != nil {
+				return
+			}
+			queryResult <- retTable
+		}(cnode)
+	}
+
+	go func() {
+		for _ = range node.ChildrenNode {
+			queryDone <- true
+		}
+		<-allDone
+	}()
+
+	resultCount := 0
+	var allRet CacheTable
+	// node.InitNodeTable([]int{0},queryID)
+	select {
+	case nodeResultTable := <-queryResult:
+		resultCount++
+		tableName := int(queryID)
+		columns := []int{}
+		if resultCount == 0 {
+			columns = nodeResultTable.Columns
+			node.InitNodeTable([]int{0}, tableName, columns, map[int]string{}, map[int]string{}, []int{})
+		}
+		db, err := node.GetDB(tableName)
+		if err != nil {
+			return nil, err
+		}
+		InsertRows(db, 0, tableName, columns, nodeResultTable.Rows)
+		if resultCount == len(node.ChildrenNode) {
+			allQueryResult, err := QueryTable(db, mergeSQL)
+			if err != nil {
+				return nil, err
+			}
+			fmt.Printf("allQueryResult %s", allQueryResult)
+			allRet = *allQueryResult
+			break
+		}
+
+	case <-allDone:
+		fmt.Print("alldone")
+	}
+	return &allRet, nil
+
 }
