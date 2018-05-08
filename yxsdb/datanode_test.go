@@ -8,13 +8,13 @@ import (
 	"testing"
 )
 
-func InitNode(t *testing.T) *DataNode {
+func InitNode() *DataNode {
 	var cnodes []*DataNode
 	node := DataNode{
 		ID:             1,
-		BaseDir:        "target/data",
-		DiskDatabase:   []int{0, 1, 2},
-		MemoryDatabase: []int{3, 4, 5, 6, 7, 8, 9},
+		BaseDir:        "/dev/shm/target/data",
+		DiskDatabase:   []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+		MemoryDatabase: []int{},
 		NodeLock:       make(chan bool, 1),
 		ConnectionPool: make(map[string]*sql.DB),
 	}
@@ -23,8 +23,8 @@ func InitNode(t *testing.T) *DataNode {
 		cnode := DataNode{
 			ID:             i,
 			BaseDir:        path.Join(node.BaseDir, fmt.Sprintf("%v", node.ID), "nodes"),
-			DiskDatabase:   []int{0, 1, 2, 3},
-			MemoryDatabase: []int{4, 5, 6, 7, 8, 9},
+			DiskDatabase:   []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+			MemoryDatabase: []int{},
 			NodeLock:       make(chan bool, 1),
 			ConnectionPool: make(map[string]*sql.DB),
 			ParentNode:     &node,
@@ -36,18 +36,18 @@ func InitNode(t *testing.T) *DataNode {
 }
 
 func TestCreateTable(t *testing.T) {
-	node := InitNode(t)
+	node := InitNode()
 	ret, err := json.Marshal(*node)
 	t.Logf("node is %s", ret)
 	columns := []int{0, 1, 2, 3, 4, 5}
-	err = node.InitCNodeTable([]int{0}, 2010, columns,
+	err = node.InitCNodeTable([]int{0, 1, 2, 3, 4, 5, 6, 7}, 2010, columns,
 		map[int]string{0: "", 1: ""}, map[int]string{},
 		columns)
 	if err != nil {
 		t.Error(err)
 	}
 	var rows [][]interface{}
-	for r := 0; r < 100; r++ {
+	for r := 0; r < 5000; r++ {
 		var row []interface{}
 		for c := 0; c < 6; c++ {
 			if c == 0 {
@@ -58,19 +58,81 @@ func TestCreateTable(t *testing.T) {
 		}
 		rows = append(rows, row)
 	}
-	db, err := node.GetCNodeDB(0, 2010)
-	if err != nil {
-		t.Error(err)
-	}
-	err = InsertRows(db, 0, 2010, columns, rows)
-	if err != nil {
-		t.Error(err)
-	}
-	retTable, err := QueryTable(db, "select * from _0._2010;")
-	retTable.RowsShowCount = 3
-	if err != nil {
-		t.Error(err)
-	}
-	t.Logf("%s", retTable)
 
+	for n := 0; n < 8; n++ {
+		tableName := 2010
+		db, err := node.GetCNodeDB(n, tableName)
+		if err != nil {
+			t.Error(err)
+		}
+		err = InsertRows(db, 0, tableName, columns, rows)
+		if err != nil {
+			t.Error(err)
+		}
+		retTable, err := QueryTable(db, fmt.Sprintf("select count(_0) from _%v._%v ;", 0, tableName))
+		retTable.RowsShowCount = 3
+		if err != nil {
+			t.Error(err)
+		}
+		t.Logf("%s", retTable)
+	}
+}
+
+var (
+	testNode = InitNode()
+)
+
+func BenchmarkInsert(t *testing.B) {
+	node := InitNode()
+	ret, err := json.Marshal(*node)
+	t.Logf("node is %s", ret)
+	columns := []int{0, 1, 2, 3, 4, 5}
+	err = node.InitCNodeTable([]int{0, 1, 2, 3, 4, 5, 6, 7}, 2010, columns,
+		map[int]string{0: "", 1: ""}, map[int]string{},
+		columns)
+	if err != nil {
+		t.Error(err)
+	}
+
+	var rows [][]interface{}
+	for r := 0; r < 10000; r++ {
+		var row []interface{}
+		for c := 0; c < 6; c++ {
+			if c == 0 {
+				row = append(row, r)
+			} else {
+				row = append(row, fmt.Sprintf("v-%v-%v", r, c))
+			}
+		}
+		rows = append(rows, row)
+	}
+
+	t.ResetTimer()
+	for i := 0; i < t.N; i++ {
+		for n := 0; n < 1; n++ {
+			tableName := 2010
+			db, err := node.GetCNodeDB(n, tableName)
+			if err != nil {
+				t.Error(err)
+			}
+			err = InsertRows(db, 0, tableName, columns, rows)
+			if err != nil {
+				t.Error(err)
+			}
+			retTable, err := QueryTable(db, fmt.Sprintf("select count(_0) from _%v._%v ;", 0, tableName))
+			retTable.RowsShowCount = 3
+			if err != nil {
+				t.Error(err)
+			}
+			t.Logf("%s", retTable)
+		}
+	}
+}
+
+func ExampleSalutations() {
+	fmt.Println("hello, and")
+	fmt.Println("goodbye")
+	// Output:
+	// hello, and
+	// goodbye
 }
