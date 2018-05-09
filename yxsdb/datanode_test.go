@@ -181,8 +181,8 @@ func BenchmarkNodeQuery(t *testing.B) {
 
 	t.ResetTimer()
 	for i := 0; i < t.N; i++ {
-		querySQL := fmt.Sprintf("select * from _%v._%v where _0 like '%42%' order by _0 desc limit 20;", 0, tableName)
-		mergeSQL := fmt.Sprintf("select * from _%v._%v where _0 like '%42%' order by _0 desc limit 20;", 0, tableName)
+		querySQL := fmt.Sprintf("select * from _%v._%v where _0 like '%%34%%' order by _0 desc limit 20;", 0, tableName)
+		mergeSQL := fmt.Sprintf("select * from _%v._%v where _0 like '%%34%%' order by _0 desc limit 20;", 0, tableName)
 		queryResult := node.QueryNodeTable(tableName, querySQL, mergeSQL)
 		if queryResult.err != nil {
 			t.Error(queryResult.err)
