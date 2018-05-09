@@ -246,12 +246,12 @@ func TestNodeQuery(t *testing.T) {
 		t.Logf("%s", retTable)
 	}
 
-	retTable, err := node.QueryNodeTable(tableName, querySQL, mergeSQL)
-	if err != nil {
-		t.Error(err)
+	queryResult := node.QueryNodeTable(tableName, querySQL, mergeSQL)
+	if queryResult.err != nil {
+		t.Error(queryResult.err)
 	}
-	retTable.RowsShowCount = 3
-	t.Logf("%s", retTable)
+	queryResult.CacheTable.RowsShowCount = 3
+	t.Logf("%s", queryResult.CacheTable)
 }
 
 func ExampleSalutations() {

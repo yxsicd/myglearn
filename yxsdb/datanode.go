@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"path"
+	"strings"
 )
 
 var (
@@ -103,64 +103,49 @@ func (node *DataNode) QueryTable(tableName int, querySQL string) (*CacheTable, e
 	return retTable, err
 }
 
-func (node *DataNode) QueryNodeTable(tableName int, querySQL string, mergeSQL string) (*CacheTable, error) {
+type QueryTaskResult struct {
+	CacheTable *CacheTable
+	err        error
+}
+
+func (node *DataNode) QueryNodeTable(tableName int, querySQL string, mergeSQL string) *QueryTaskResult {
 
 	globalID++
 	queryID := globalID
-	queryDone := make(chan bool, len(node.ChildrenNode))
-	queryResult := make(chan *CacheTable, len(node.ChildrenNode))
-	allDone := make(chan bool, 1)
-	allDone <- true
+	queryResult := make(chan *QueryTaskResult, len(node.ChildrenNode))
 	for _, cnode := range node.ChildrenNode {
 		go func(queryNode *DataNode, tableName int, querySQL string) {
-			queryDone <- true
-			defer func() {
-				<-queryDone
-			}()
 			retTable, err := queryNode.QueryTable(tableName, querySQL)
-			if err != nil {
-				return
-			}
-			retTable.RowsShowCount = 3
-			log.Printf("%s", retTable)
-			queryResult <- retTable
+			queryResult <- &QueryTaskResult{CacheTable: retTable, err: err}
 		}(cnode, tableName, querySQL)
 	}
 
-	go func() {
-		for _ = range node.ChildrenNode {
-			queryDone <- true
-		}
-		<-allDone
-	}()
-
 	resultCount := 0
-	var allRet CacheTable
 	// node.InitNodeTable([]int{0},queryID)
-	select {
-	case nodeResultTable := <-queryResult:
+	for resultCount != len(node.ChildrenNode) {
+		nodeTaskResult := <-queryResult
+		if nodeTaskResult.err != nil {
+			return nodeTaskResult
+		}
+		nodeResultTable := nodeTaskResult.CacheTable
 		resultCount++
-		tableName := int(queryID)
-		columns := []int{}
-		if resultCount == 0 {
-			columns = nodeResultTable.Columns
-			node.InitNodeTable([]int{0}, tableName, columns, map[int]string{}, map[int]string{}, []int{})
+		queryTableName := int(queryID)
+		if resultCount == 1 {
+			node.InitNodeTable([]int{0}, queryTableName, nodeResultTable.Columns, map[int]string{}, map[int]string{}, []int{})
 		}
-		db, err := node.GetDB(tableName)
+		db, err := node.GetDB(queryTableName)
 		if err != nil {
-			return nil, err
+			return &QueryTaskResult{CacheTable: nil, err: err}
 		}
-		InsertRows(db, 0, tableName, columns, nodeResultTable.Rows)
-		if resultCount == len(node.ChildrenNode) {
-			allQueryResult, err := QueryTable(db, mergeSQL)
-			if err != nil {
-				return nil, err
-			}
-			fmt.Printf("allQueryResult %s", allQueryResult)
-			allRet = *allQueryResult
-			break
+		err = InsertRows(db, 0, queryTableName, nodeResultTable.Columns, nodeResultTable.Rows)
+		if err != nil {
+			return &QueryTaskResult{CacheTable: nil, err: err}
 		}
 	}
-	return &allRet, nil
-
+	replaceMergeSQL := strings.Replace(mergeSQL, fmt.Sprintf("_%v._%v", 0, tableName), fmt.Sprintf("_%v._%v", 0, queryID), -1)
+	allQueryResult, err := node.QueryTable(queryID, replaceMergeSQL)
+	if err != nil {
+		return &QueryTaskResult{CacheTable: nil, err: err}
+	}
+	return &QueryTaskResult{CacheTable: allQueryResult, err: err}
 }
