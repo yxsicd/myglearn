@@ -14,7 +14,7 @@ func InitNode() *DataNode {
 	node := DataNode{
 		ID:             1,
 		BaseDir:        "target/data",
-		DiskDatabase:   []int{1},
+		DiskDatabase:   []int{},
 		MemoryDatabase: []int{0},
 		NodeLock:       make(chan bool, 1),
 		ConnectionPool: make(map[string]*sql.DB),
@@ -144,7 +144,7 @@ func BenchmarkNodeQuery(t *testing.B) {
 	}
 
 	var rows [][]interface{}
-	for r := 0; r < 1000; r++ {
+	for r := 0; r < 100; r++ {
 		var row []interface{}
 		for c := 0; c < 6; c++ {
 			if c == 0 {

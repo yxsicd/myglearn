@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"path"
 	"strings"
 )
@@ -106,6 +107,21 @@ func (node *DataNode) QueryTable(tableName int, querySQL string) (*CacheTable, e
 type QueryTaskResult struct {
 	CacheTable *CacheTable
 	err        error
+}
+
+func (node *DataNode) DropTable(tableName int) error {
+	node.NodeLock <- true
+	defer func() {
+		<-node.NodeLock
+	}()
+	tableBaseDir := node.GetTablePath(tableName)
+	db, ok := node.ConnectionPool[tableBaseDir]
+	if ok {
+		db.Close()
+	}
+	delete(node.ConnectionPool, tableBaseDir)
+	err := os.RemoveAll(tableBaseDir)
+	return err
 }
 
 func (node *DataNode) QueryNodeTable(tableName int, querySQL string, mergeSQL string) *QueryTaskResult {
