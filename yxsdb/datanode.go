@@ -148,6 +148,9 @@ func (node *DataNode) QueryNodeTable(tableName int, querySQL string, mergeSQL st
 		queryTableName := int(queryID)
 		if resultCount == 1 {
 			node.InitNodeTable([]int{0}, queryTableName, nodeResultTable.Columns, map[int]string{}, map[int]string{}, []int{})
+			defer func() {
+				node.DropTable(queryTableName)
+			}()
 		}
 		db, err := node.GetDB(queryTableName)
 		if err != nil {
