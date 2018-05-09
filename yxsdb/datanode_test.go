@@ -136,7 +136,7 @@ func BenchmarkNodeQuery(t *testing.B) {
 	ret, err := json.Marshal(*node)
 	t.Logf("node is %s", ret)
 	columns := []int{0, 1, 2, 3, 4, 5}
-	err = node.InitCNodeTable([]int{0, 1, 2, 3, 4, 5, 6, 7}, tableName, columns,
+	err = node.InitCNodeTable([]int{0, 1}, tableName, columns,
 		map[int]string{0: "", 1: ""}, map[int]string{},
 		columns)
 	if err != nil {
@@ -167,31 +167,31 @@ func BenchmarkNodeQuery(t *testing.B) {
 		}
 	}
 
+	t.ResetTimer()
+	for i := 0; i < t.N; i++ {
+		querySQL := fmt.Sprintf("select count(_0) as _0 from _%v._%v ;", 0, tableName)
+		mergeSQL := fmt.Sprintf("select sum(_0) from _%v._%v ;", 0, tableName)
+		queryResult := node.QueryNodeTable(tableName, querySQL, mergeSQL)
+		if queryResult.err != nil {
+			t.Error(queryResult.err)
+		}
+		queryResult.CacheTable.RowsShowCount = 3
+		t.Logf("%s", queryResult.CacheTable)
+	}
+
 	// t.ResetTimer()
 	// for i := 0; i < t.N; i++ {
-	// 	querySQL := fmt.Sprintf("select count(_0) as _0 from _%v._%v ;", 0, tableName)
-	// 	mergeSQL := fmt.Sprintf("select sum(_0) from _%v._%v ;", 0, tableName)
-	// 	retTable, err := node.QueryNodeTable(tableName, querySQL, mergeSQL)
+	// 	db, err := node.GetCNodeDB(0, tableName)
 	// 	if err != nil {
 	// 		t.Error(err)
 	// 	}
+	// 	retTable, err := QueryTable(db, fmt.Sprintf("select * from _%v._%v limit 10;", 0, tableName))
 	// 	retTable.RowsShowCount = 3
+	// 	if err != nil {
+	// 		t.Error(err)
+	// 	}
 	// 	t.Logf("%s", retTable)
 	// }
-
-	t.ResetTimer()
-	for i := 0; i < t.N; i++ {
-		db, err := node.GetCNodeDB(0, tableName)
-		if err != nil {
-			t.Error(err)
-		}
-		retTable, err := QueryTable(db, fmt.Sprintf("select * from _%v._%v limit 10;", 0, tableName))
-		retTable.RowsShowCount = 3
-		if err != nil {
-			t.Error(err)
-		}
-		t.Logf("%s", retTable)
-	}
 
 }
 
