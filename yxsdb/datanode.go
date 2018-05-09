@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"path"
 )
 
@@ -93,6 +94,15 @@ func (node *DataNode) InitCNodeTable(database []int, tableName int, columns []in
 	return nil
 }
 
+func (node *DataNode) QueryTable(tableName int, querySQL string) (*CacheTable, error) {
+	db, err := node.GetDB(tableName)
+	if err != nil {
+		return nil, err
+	}
+	retTable, err := QueryTable(db, querySQL)
+	return retTable, err
+}
+
 func (node *DataNode) QueryNodeTable(tableName int, querySQL string, mergeSQL string) (*CacheTable, error) {
 
 	globalID++
@@ -102,22 +112,19 @@ func (node *DataNode) QueryNodeTable(tableName int, querySQL string, mergeSQL st
 	allDone := make(chan bool, 1)
 	allDone <- true
 	for _, cnode := range node.ChildrenNode {
-		go func(queryNode *DataNode) {
+		go func(queryNode *DataNode, tableName int, querySQL string) {
 			queryDone <- true
 			defer func() {
 				<-queryDone
 			}()
-
-			db, err := queryNode.GetDB(tableName)
+			retTable, err := queryNode.QueryTable(tableName, querySQL)
 			if err != nil {
 				return
 			}
-			retTable, err := QueryTable(db, querySQL)
-			if err != nil {
-				return
-			}
+			retTable.RowsShowCount = 3
+			log.Printf("%s", retTable)
 			queryResult <- retTable
-		}(cnode)
+		}(cnode, tableName, querySQL)
 	}
 
 	go func() {
@@ -153,9 +160,6 @@ func (node *DataNode) QueryNodeTable(tableName int, querySQL string, mergeSQL st
 			allRet = *allQueryResult
 			break
 		}
-
-	case <-allDone:
-		fmt.Print("alldone")
 	}
 	return &allRet, nil
 

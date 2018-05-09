@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"path"
 	"testing"
 )
@@ -12,8 +13,8 @@ func InitNode() *DataNode {
 	var cnodes []*DataNode
 	node := DataNode{
 		ID:             1,
-		BaseDir:        "/dev/shm/target/data",
-		DiskDatabase:   []int{1, 2, 3, 4, 5, 6, 7, 8, 9},
+		BaseDir:        "target/data",
+		DiskDatabase:   []int{1},
 		MemoryDatabase: []int{0},
 		NodeLock:       make(chan bool, 1),
 		ConnectionPool: make(map[string]*sql.DB),
@@ -23,8 +24,8 @@ func InitNode() *DataNode {
 		cnode := DataNode{
 			ID:             i,
 			BaseDir:        path.Join(node.BaseDir, fmt.Sprintf("%v", node.ID), "nodes"),
-			DiskDatabase:   []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
-			MemoryDatabase: []int{},
+			DiskDatabase:   []int{0},
+			MemoryDatabase: []int{1},
 			NodeLock:       make(chan bool, 1),
 			ConnectionPool: make(map[string]*sql.DB),
 			ParentNode:     &node,
@@ -192,6 +193,65 @@ func BenchmarkNodeQuery(t *testing.B) {
 		t.Logf("%s", retTable)
 	}
 
+}
+
+func TestNodeQuery(t *testing.T) {
+	node := InitNode()
+	tableName := 2010
+	ret, err := json.Marshal(*node)
+	t.Logf("node is %s", ret)
+	columns := []int{0, 1, 2, 3, 4, 5}
+	err = node.InitCNodeTable([]int{0, 1}, tableName, columns,
+		map[int]string{0: "", 1: ""}, map[int]string{},
+		columns)
+	if err != nil {
+		t.Error(err)
+	}
+
+	var rows [][]interface{}
+	for r := 0; r < 1000; r++ {
+		var row []interface{}
+		for c := 0; c < 6; c++ {
+			if c == 0 {
+				row = append(row, r)
+			} else {
+				row = append(row, fmt.Sprintf("v-%v-%v", r, c))
+			}
+		}
+		rows = append(rows, row)
+	}
+
+	for n := 0; n < 8; n++ {
+		db, err := node.GetCNodeDB(n, tableName)
+		if err != nil {
+			t.Error(err)
+		}
+		err = InsertRows(db, 0, tableName, columns, rows)
+		if err != nil {
+			t.Error(err)
+		}
+	}
+
+	querySQL := fmt.Sprintf("select count(_0) as _0 from _%v._%v ;", 0, tableName)
+	mergeSQL := fmt.Sprintf("select sum(_0) from _%v._%v ;", 0, tableName)
+
+	log.Printf("querySQL=%s\nmergeSQL=%s", querySQL, mergeSQL)
+
+	for n := 0; n < 8; n++ {
+		retTable, err := node.ChildrenNodeMap[n].QueryTable(tableName, querySQL)
+		if err != nil {
+			t.Error(err)
+		}
+		retTable.RowsShowCount = 3
+		t.Logf("%s", retTable)
+	}
+
+	retTable, err := node.QueryNodeTable(tableName, querySQL, mergeSQL)
+	if err != nil {
+		t.Error(err)
+	}
+	retTable.RowsShowCount = 3
+	t.Logf("%s", retTable)
 }
 
 func ExampleSalutations() {
