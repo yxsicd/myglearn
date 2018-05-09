@@ -144,7 +144,7 @@ func BenchmarkNodeQuery(t *testing.B) {
 	}
 
 	var rows [][]interface{}
-	for r := 0; r < 100; r++ {
+	for r := 0; r < 1; r++ {
 		var row []interface{}
 		for c := 0; c < 6; c++ {
 			if c == 0 {
@@ -167,10 +167,22 @@ func BenchmarkNodeQuery(t *testing.B) {
 		}
 	}
 
+	// t.ResetTimer()
+	// for i := 0; i < t.N; i++ {
+	// 	querySQL := fmt.Sprintf("select count(_0) as _0 from _%v._%v ;", 0, tableName)
+	// 	mergeSQL := fmt.Sprintf("select sum(_0) from _%v._%v ;", 0, tableName)
+	// 	queryResult := node.QueryNodeTable(tableName, querySQL, mergeSQL)
+	// 	if queryResult.err != nil {
+	// 		t.Error(queryResult.err)
+	// 	}
+	// 	queryResult.CacheTable.RowsShowCount = 3
+	// 	t.Logf("%s", queryResult.CacheTable)
+	// }
+
 	t.ResetTimer()
 	for i := 0; i < t.N; i++ {
-		querySQL := fmt.Sprintf("select count(_0) as _0 from _%v._%v ;", 0, tableName)
-		mergeSQL := fmt.Sprintf("select sum(_0) from _%v._%v ;", 0, tableName)
+		querySQL := fmt.Sprintf("select * from _%v._%v where _0 like '%42%' order by _0 desc limit 20;", 0, tableName)
+		mergeSQL := fmt.Sprintf("select * from _%v._%v where _0 like '%42%' order by _0 desc limit 20;", 0, tableName)
 		queryResult := node.QueryNodeTable(tableName, querySQL, mergeSQL)
 		if queryResult.err != nil {
 			t.Error(queryResult.err)
