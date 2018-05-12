@@ -17,7 +17,7 @@ var (
 	consumerMapLock = make(chan bool, 1)
 )
 
-func createTopic(topicName string) {
+func createTopic(topicName string) error {
 	broker := sarama.NewBroker("localhost:9092")
 	err := broker.Open(nil)
 	if err != nil {
@@ -25,20 +25,22 @@ func createTopic(topicName string) {
 	}
 
 	request := sarama.MetadataRequest{Topics: []string{topicName}}
-	response, err := broker.GetMetadata(&request)
+	_, err = broker.GetMetadata(&request)
 	if err != nil {
 		_ = broker.Close()
-		panic(err)
+		return err
 	}
 
-	log.Println("There are", len(response.Topics), "topics active in the cluster.")
+	// log.Printf("create Topic is %v", response.Topics)
+	// log.Println("There are", len(response.Topics), "topics active in the cluster.")
 
 	if err = broker.Close(); err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
-func getProducer(name string) *sarama.AsyncProducer {
+func getProducer(name string) (*sarama.AsyncProducer, error) {
 	producerMapLock <- true
 	defer func() {
 		<-producerMapLock
@@ -48,12 +50,12 @@ func getProducer(name string) *sarama.AsyncProducer {
 	if !ok {
 		producer, err := sarama.NewAsyncProducer([]string{"localhost:9092"}, nil)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		producerMap[name] = &producer
-		return &producer
+		return &producer, nil
 	} else {
-		return producer
+		return producer, nil
 	}
 }
 
@@ -77,6 +79,7 @@ func getConsumer(name string) *sarama.Consumer {
 }
 
 func sendMessage(producer *sarama.AsyncProducer, topic string, key string, value string) {
+	// log.Printf("send msg to %s", topic)
 	(*producer).Input() <- &sarama.ProducerMessage{Topic: topic, Key: sarama.StringEncoder(key), Value: sarama.StringEncoder(value)}
 }
 
@@ -159,7 +162,7 @@ func doTopicCreate(level1 int, level2 int) {
 
 	for x := 0; x < level1; x++ {
 		for y := 0; y < level2; y++ {
-			topic := fmt.Sprintf("nq-%v-%v", x, y)
+			topic := fmt.Sprintf("nq_%v_%v", x, y)
 			createTopic(topic)
 		}
 	}
@@ -168,9 +171,14 @@ func doTopicCreate(level1 int, level2 int) {
 func handleMessage(consumer *sarama.Consumer, topic string, handler func(msg *sarama.ConsumerMessage)) {
 
 	go func() {
+		// topics, err := (*consumer).Topics()
+		// partitions, err := (*consumer).Partitions("nq_0_0")
+
+		// log.Printf("all topic is %v, partitions is %v", topics, partitions)
 		partitionConsumer, err := (*consumer).ConsumePartition(topic, 0, sarama.OffsetOldest)
 		if err != nil {
-			panic(err)
+			log.Printf("err is %v", err)
+			return
 		}
 
 		for {
@@ -184,8 +192,8 @@ func handleMessage(consumer *sarama.Consumer, topic string, handler func(msg *sa
 }
 
 func addNode(level1, level2 int) {
-	nodeName := fmt.Sprintf("node-%v-%v", level1, level2)
-	topicName := fmt.Sprintf("nq-%v-%v", level1, level2)
+	nodeName := fmt.Sprintf("node_%v_%v", level1, level2)
+	topicName := fmt.Sprintf("nq_%v_%v", level1, level2)
 
 	nodeConsumer := getConsumer(nodeName)
 	handler := func(msg *sarama.ConsumerMessage) {
@@ -205,5 +213,5 @@ func addAllNode(maxLevel1, maxLevel2 int) {
 func getTopicName(id int64, maxLevel1, maxLevel2 int) string {
 	level1 := id % int64(maxLevel1)
 	level2 := id % int64(maxLevel2)
-	return fmt.Sprintf("nq-%v-%v", level1, level2)
+	return fmt.Sprintf("nq_%v_%v", level1, level2)
 }
