@@ -14,7 +14,7 @@ func tryCreateTopic(tname string) {
 	broker := sarama.NewBroker("localhost:9092")
 	err := broker.Open(nil)
 	if err != nil {
-		log.Printf("%s", err)
+		// log.Printf("%s", err)
 	}
 
 	req := sarama.ApiVersionsRequest{}
@@ -73,7 +73,7 @@ func btopic() {
 func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.Llongfile)
 	tryCreateTopic("xxxx")
-	btopic()
+	// btopic()
 	// for i := 0; i < 3; i++ {
 	// 	go sendMsg()
 	// }

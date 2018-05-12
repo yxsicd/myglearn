@@ -1,7 +1,6 @@
 package yxsdb
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -207,28 +206,4 @@ func getTopicName(id int64, maxLevel1, maxLevel2 int) string {
 	level1 := id % int64(maxLevel1)
 	level2 := id % int64(maxLevel2)
 	return fmt.Sprintf("nq-%v-%v", level1, level2)
-}
-
-func main() {
-	log.Printf("begin")
-
-	maxLevel1 := flag.Int("r1", 3, "maxLevel1")
-	maxLevel2 := flag.Int("r2", 5, "maxLevel2")
-	flag.Parse()
-	// doTopicCreate(3, 5)
-	createTopic("dbmeta")
-	createTopic("nodemeta")
-
-	// doProducer()
-	// doConsumer()
-	addAllNode(*maxLevel1, *maxLevel2)
-
-	masterP := getProducer("master")
-	log.Printf("masterP is %v", masterP)
-
-	for i := 0; i < 100; i++ {
-		//sendMessage(masterP, getTopicName(int64(i), *maxLevel1, *maxLevel2), "1", "create table _0(_0,_1,_2,_3)")
-	}
-	select {}
-	log.Printf("end")
 }

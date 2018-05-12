@@ -13,7 +13,7 @@ func InitNode() *DataNode {
 	var cnodes []*DataNode
 	node := DataNode{
 		ID:             1,
-		BaseDir:        "target/data",
+		BaseDir:        "/dev/shm/target/data",
 		DiskDatabase:   []int{},
 		MemoryDatabase: []int{0},
 		NodeLock:       make(chan bool, 1),
@@ -88,7 +88,7 @@ func BenchmarkInsert(t *testing.B) {
 	ret, err := json.Marshal(*node)
 	t.Logf("node is %s", ret)
 	columns := []int{0, 1, 2, 3, 4, 5}
-	err = node.InitCNodeTable([]int{0, 1, 2, 3, 4, 5, 6, 7}, 2010, columns,
+	err = node.InitCNodeTable([]int{0, 1}, 2010, columns,
 		map[int]string{0: "", 1: ""}, map[int]string{},
 		columns)
 	if err != nil {
@@ -96,7 +96,7 @@ func BenchmarkInsert(t *testing.B) {
 	}
 
 	var rows [][]interface{}
-	for r := 0; r < 10; r++ {
+	for r := 0; r < 10000; r++ {
 		var row []interface{}
 		for c := 0; c < 6; c++ {
 			if c == 0 {
@@ -144,7 +144,7 @@ func BenchmarkNodeQuery(t *testing.B) {
 	}
 
 	var rows [][]interface{}
-	for r := 0; r < 1; r++ {
+	for r := 0; r < 10000; r++ {
 		var row []interface{}
 		for c := 0; c < 6; c++ {
 			if c == 0 {
@@ -167,22 +167,10 @@ func BenchmarkNodeQuery(t *testing.B) {
 		}
 	}
 
-	// t.ResetTimer()
-	// for i := 0; i < t.N; i++ {
-	// 	querySQL := fmt.Sprintf("select count(_0) as _0 from _%v._%v ;", 0, tableName)
-	// 	mergeSQL := fmt.Sprintf("select sum(_0) from _%v._%v ;", 0, tableName)
-	// 	queryResult := node.QueryNodeTable(tableName, querySQL, mergeSQL)
-	// 	if queryResult.err != nil {
-	// 		t.Error(queryResult.err)
-	// 	}
-	// 	queryResult.CacheTable.RowsShowCount = 3
-	// 	t.Logf("%s", queryResult.CacheTable)
-	// }
-
 	t.ResetTimer()
 	for i := 0; i < t.N; i++ {
-		querySQL := fmt.Sprintf("select * from _%v._%v where _0 like '%%34%%' order by _0 desc limit 20;", 0, tableName)
-		mergeSQL := fmt.Sprintf("select * from _%v._%v where _0 like '%%34%%' order by _0 desc limit 20;", 0, tableName)
+		querySQL := fmt.Sprintf("select count(_0) as _0 from _%v._%v ;", 0, tableName)
+		mergeSQL := fmt.Sprintf("select sum(_0) from _%v._%v ;", 0, tableName)
 		queryResult := node.QueryNodeTable(tableName, querySQL, mergeSQL)
 		if queryResult.err != nil {
 			t.Error(queryResult.err)
@@ -190,6 +178,18 @@ func BenchmarkNodeQuery(t *testing.B) {
 		queryResult.CacheTable.RowsShowCount = 3
 		t.Logf("%s", queryResult.CacheTable)
 	}
+
+	// t.ResetTimer()
+	// for i := 0; i < t.N; i++ {
+	// 	querySQL := fmt.Sprintf("select * from _%v._%v where _0 like '%%34%%' order by _0 desc limit 20;", 0, tableName)
+	// 	mergeSQL := fmt.Sprintf("select * from _%v._%v where _0 like '%%34%%' order by _0 desc limit 20;", 0, tableName)
+	// 	queryResult := node.QueryNodeTable(tableName, querySQL, mergeSQL)
+	// 	if queryResult.err != nil {
+	// 		t.Error(queryResult.err)
+	// 	}
+	// 	queryResult.CacheTable.RowsShowCount = 3
+	// 	t.Logf("%s", queryResult.CacheTable)
+	// }
 
 	// t.ResetTimer()
 	// for i := 0; i < t.N; i++ {
