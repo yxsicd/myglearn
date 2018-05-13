@@ -3,6 +3,7 @@ package yxsdb
 import (
 	"log"
 	"testing"
+	"time"
 )
 
 func TestKafka(t *testing.T) {
@@ -21,9 +22,14 @@ func TestKafka(t *testing.T) {
 	masterP, _ := getProducer("master")
 	log.Printf("masterP is %v", masterP)
 
-	for i := 0; i < 10; i++ {
-		sendMessage(masterP, getTopicName(int64(i), maxLevel1, maxLevel2), "1", "create table _0(_0,_1,_2,_3)")
-		// time.Sleep(1 * time.Millisecond)
+	for i := 0; i < 1; i++ {
+		sendMessage(masterP, getNodeTopicName(int64(i), maxLevel1, maxLevel2), "1", "create table if not exists _0(_0,_1,_2,_3)")
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	for i := 0; i < 1; i++ {
+		sendMessage(masterP, getSubTopicName(maxLevel1, maxLevel2), "1", "create table if not exists _0(_0,_1,_2,_3)")
+		time.Sleep(50 * time.Millisecond)
 	}
 	log.Printf("end")
 }

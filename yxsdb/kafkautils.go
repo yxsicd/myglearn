@@ -160,9 +160,12 @@ ConsumerLoop:
 
 func doTopicCreate(level1 int, level2 int) {
 
+	topic := fmt.Sprintf("nq_%v_%v", level1, level2)
+	createTopic(topic)
+
 	for x := 0; x < level1; x++ {
 		for y := 0; y < level2; y++ {
-			topic := fmt.Sprintf("nq_%v_%v", x, y)
+			topic := fmt.Sprintf("nq_%v_%v_%v_%v", level1, level2, x, y)
 			createTopic(topic)
 		}
 	}
@@ -191,27 +194,34 @@ func handleMessage(consumer *sarama.Consumer, topic string, handler func(msg *sa
 	}()
 }
 
-func addNode(level1, level2 int) {
-	nodeName := fmt.Sprintf("node_%v_%v", level1, level2)
-	topicName := fmt.Sprintf("nq_%v_%v", level1, level2)
+func addNode(maxLevel1, maxLevel2, level1, level2 int) {
+	nodeName := fmt.Sprintf("node_%v_%v_%v_%v", maxLevel1, maxLevel2, level1, level2)
+	topicName := fmt.Sprintf("nq_%v_%v_%v_%v", maxLevel1, maxLevel2, level1, level2)
+	subTopicName := fmt.Sprintf("nq_%v_%v", maxLevel1, maxLevel2)
 
 	nodeConsumer := getConsumer(nodeName)
 	handler := func(msg *sarama.ConsumerMessage) {
 		log.Printf("Node %s get message,%s=%s, offset=%v", nodeName, msg.Key, msg.Value, msg.Offset)
 	}
 	handleMessage(nodeConsumer, topicName, handler)
+	handleMessage(nodeConsumer, subTopicName, handler)
+
 }
 
 func addAllNode(maxLevel1, maxLevel2 int) {
 	for x := 0; x < maxLevel1; x++ {
 		for y := 0; y < maxLevel2; y++ {
-			addNode(x, y)
+			addNode(maxLevel1, maxLevel2, x, y)
 		}
 	}
 }
 
-func getTopicName(id int64, maxLevel1, maxLevel2 int) string {
+func getNodeTopicName(id int64, maxLevel1, maxLevel2 int) string {
 	level1 := id % int64(maxLevel1)
 	level2 := id % int64(maxLevel2)
-	return fmt.Sprintf("nq_%v_%v", level1, level2)
+	return fmt.Sprintf("nq_%v_%v_%v_%v", maxLevel1, maxLevel2, level1, level2)
+}
+
+func getSubTopicName(maxLevel1, maxLevel2 int) string {
+	return fmt.Sprintf("nq_%v_%v", maxLevel1, maxLevel2)
 }
