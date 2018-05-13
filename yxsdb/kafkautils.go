@@ -172,12 +172,7 @@ func doTopicCreate(level1 int, level2 int) {
 }
 
 func handleMessage(consumer *sarama.Consumer, topic string, handler func(msg *sarama.ConsumerMessage)) {
-
 	go func() {
-		// topics, err := (*consumer).Topics()
-		// partitions, err := (*consumer).Partitions("nq_0_0")
-
-		// log.Printf("all topic is %v, partitions is %v", topics, partitions)
 		partitionConsumer, err := (*consumer).ConsumePartition(topic, 0, sarama.OffsetOldest)
 		if err != nil {
 			log.Printf("err is %v", err)
@@ -187,7 +182,6 @@ func handleMessage(consumer *sarama.Consumer, topic string, handler func(msg *sa
 		for {
 			select {
 			case msg := <-partitionConsumer.Messages():
-				// log.Printf("Consumed message offset=%d, %s=%s", msg.Offset, msg.Key, msg.Value)
 				handler(msg)
 			}
 		}
@@ -195,13 +189,16 @@ func handleMessage(consumer *sarama.Consumer, topic string, handler func(msg *sa
 }
 
 func addNode(maxLevel1, maxLevel2, level1, level2 int) {
-	nodeName := fmt.Sprintf("node_%v_%v_%v_%v", maxLevel1, maxLevel2, level1, level2)
-	topicName := fmt.Sprintf("nq_%v_%v_%v_%v", maxLevel1, maxLevel2, level1, level2)
-	subTopicName := fmt.Sprintf("nq_%v_%v", maxLevel1, maxLevel2)
+	nodeName := getNodeTopicName("node", maxLevel1, maxLevel2, level1, level2)
+	topicName := getNodeTopicName("nq", maxLevel1, maxLevel2, level1, level2)
+	subTopicName := getSubTopicName("nq", maxLevel1, maxLevel2)
+	subResponseTopicName := getSubTopicName("ns", maxLevel1, maxLevel2)
 
 	nodeConsumer := getConsumer(nodeName)
 	handler := func(msg *sarama.ConsumerMessage) {
 		log.Printf("Node %s get message,%s=%s, offset=%v", nodeName, msg.Key, msg.Value, msg.Offset)
+		nodeProducer, _ := getProducer(nodeName)
+		sendMessage(nodeProducer, subResponseTopicName, fmt.Sprintf("NODE=%s, done!!!", nodeName), "value")
 	}
 	handleMessage(nodeConsumer, topicName, handler)
 	handleMessage(nodeConsumer, subTopicName, handler)
@@ -216,12 +213,16 @@ func addAllNode(maxLevel1, maxLevel2 int) {
 	}
 }
 
-func getNodeTopicName(id int64, maxLevel1, maxLevel2 int) string {
+func getNodeTopicNameByID(topicPrefix string, id int64, maxLevel1, maxLevel2 int) string {
 	level1 := id % int64(maxLevel1)
 	level2 := id % int64(maxLevel2)
-	return fmt.Sprintf("nq_%v_%v_%v_%v", maxLevel1, maxLevel2, level1, level2)
+	return getNodeTopicName(topicPrefix, maxLevel1, maxLevel2, int(level1), int(level2))
 }
 
-func getSubTopicName(maxLevel1, maxLevel2 int) string {
-	return fmt.Sprintf("nq_%v_%v", maxLevel1, maxLevel2)
+func getNodeTopicName(topicPrefix string, maxLevel1, maxLevel2, level1, level2 int) string {
+	return fmt.Sprintf("%s_%v_%v_%v_%v", topicPrefix, maxLevel1, maxLevel2, level1, level2)
+}
+
+func getSubTopicName(topicPrefix string, maxLevel1, maxLevel2 int) string {
+	return fmt.Sprintf("%s_%v_%v", topicPrefix, maxLevel1, maxLevel2)
 }
