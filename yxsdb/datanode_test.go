@@ -1,54 +1,25 @@
 package yxsdb
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
-	"path"
 	"testing"
 )
 
-func InitNode() *DataNode {
-	var cnodes []*DataNode
-	node := DataNode{
-		ID:             1,
-		BaseDir:        "/dev/shm/target/data",
-		DiskDatabase:   []int{},
-		MemoryDatabase: []int{0},
-		NodeLock:       make(chan bool, 1),
-		ConnectionPool: make(map[string]*sql.DB),
-	}
-
-	for i := 0; i < 8; i++ {
-		cnode := DataNode{
-			ID:             i,
-			BaseDir:        path.Join(node.BaseDir, fmt.Sprintf("%v", node.ID), "nodes"),
-			DiskDatabase:   []int{0},
-			MemoryDatabase: []int{1},
-			NodeLock:       make(chan bool, 1),
-			ConnectionPool: make(map[string]*sql.DB),
-			ParentNode:     &node,
-		}
-		cnodes = append(cnodes, &cnode)
-	}
-	node.ChildrenNode = cnodes
-	return &node
-}
-
 func TestCreateTable(t *testing.T) {
-	node := InitNode()
+	node := InitNode(1, "/dev/shm/target/data", 8)
 	ret, err := json.Marshal(*node)
 	t.Logf("node is %s", ret)
 	columns := []int{0, 1, 2, 3, 4, 5}
-	err = node.InitCNodeTable([]int{0, 1, 2, 3, 4, 5, 6, 7}, 2010, columns,
+	err = node.InitCNodeTable([]int{0, 1}, 2010, columns,
 		map[int]string{0: "", 1: ""}, map[int]string{},
 		columns)
 	if err != nil {
 		t.Error(err)
 	}
 	var rows [][]interface{}
-	for r := 0; r < 5000; r++ {
+	for r := 0; r < 100; r++ {
 		var row []interface{}
 		for c := 0; c < 6; c++ {
 			if c == 0 {
@@ -80,11 +51,11 @@ func TestCreateTable(t *testing.T) {
 }
 
 var (
-	testNode = InitNode()
+	testNode = InitNode(1, "/dev/shm/target/data", 8)
 )
 
 func BenchmarkInsert(t *testing.B) {
-	node := InitNode()
+	node := InitNode(1, "/dev/shm/target/data", 8)
 	ret, err := json.Marshal(*node)
 	t.Logf("node is %s", ret)
 	columns := []int{0, 1, 2, 3, 4, 5}
@@ -96,7 +67,7 @@ func BenchmarkInsert(t *testing.B) {
 	}
 
 	var rows [][]interface{}
-	for r := 0; r < 10000; r++ {
+	for r := 0; r < 100; r++ {
 		var row []interface{}
 		for c := 0; c < 6; c++ {
 			if c == 0 {
@@ -131,7 +102,7 @@ func BenchmarkInsert(t *testing.B) {
 }
 
 func BenchmarkNodeQuery(t *testing.B) {
-	node := InitNode()
+	node := InitNode(1, "/dev/shm/target/data", 8)
 	tableName := 2010
 	ret, err := json.Marshal(*node)
 	t.Logf("node is %s", ret)
@@ -144,7 +115,7 @@ func BenchmarkNodeQuery(t *testing.B) {
 	}
 
 	var rows [][]interface{}
-	for r := 0; r < 10000; r++ {
+	for r := 0; r < 100; r++ {
 		var row []interface{}
 		for c := 0; c < 6; c++ {
 			if c == 0 {
@@ -208,7 +179,7 @@ func BenchmarkNodeQuery(t *testing.B) {
 }
 
 func TestNodeQuery(t *testing.T) {
-	node := InitNode()
+	node := InitNode(1, "/dev/shm/target/data", 8)
 	tableName := 2010
 	ret, err := json.Marshal(*node)
 	t.Logf("node is %s", ret)
@@ -221,7 +192,7 @@ func TestNodeQuery(t *testing.T) {
 	}
 
 	var rows [][]interface{}
-	for r := 0; r < 1000; r++ {
+	for r := 0; r < 100; r++ {
 		var row []interface{}
 		for c := 0; c < 6; c++ {
 			if c == 0 {

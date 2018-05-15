@@ -26,6 +26,33 @@ type DataNode struct {
 	ChildrenNodeMap map[int]*DataNode
 }
 
+func InitNode(NodeId int, nodePath string, cNodeCount int) *DataNode {
+	var cnodes []*DataNode
+	node := DataNode{
+		ID:             NodeId,
+		BaseDir:        nodePath,
+		DiskDatabase:   []int{},
+		MemoryDatabase: []int{0},
+		NodeLock:       make(chan bool, 1),
+		ConnectionPool: make(map[string]*sql.DB),
+	}
+
+	for i := 0; i < cNodeCount; i++ {
+		cnode := DataNode{
+			ID:             i,
+			BaseDir:        path.Join(node.BaseDir, fmt.Sprintf("%v", node.ID), "nodes"),
+			DiskDatabase:   []int{0},
+			MemoryDatabase: []int{1},
+			NodeLock:       make(chan bool, 1),
+			ConnectionPool: make(map[string]*sql.DB),
+			ParentNode:     &node,
+		}
+		cnodes = append(cnodes, &cnode)
+	}
+	node.ChildrenNode = cnodes
+	return &node
+}
+
 func (node *DataNode) GetTablePath(tableName int) string {
 	tableBaseDir := path.Join(node.BaseDir, fmt.Sprintf("%v", node.ID), fmt.Sprintf("%v", tableName))
 	return tableBaseDir
