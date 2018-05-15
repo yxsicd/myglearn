@@ -7,6 +7,27 @@ import (
 	"testing"
 )
 
+func TestBatchSQLTable(t *testing.T) {
+	tableName := 4030
+	node := InitNode(1, "/dev/shm/target/data", 64)
+	ret := node.ExecuteNodeTable(tableName, "create table if not exists _0._4030(_0,_1,_2,_3);")
+	if ret.err != nil {
+		t.Error(ret.err)
+	}
+	ret = node.ExecuteNodeTable(tableName, "insert into _0._4030(_0,_1,_2,_3) values (0,1,2,3),(1,2,3,4),(3,4,5,6);")
+	if ret.err != nil {
+		t.Error(ret.err)
+	}
+	querySQL := fmt.Sprintf("select count(_0) as _0 from _%v._%v ;", 0, tableName)
+	mergeSQL := fmt.Sprintf("select sum(_0) from _%v._%v ;", 0, tableName)
+	queryResult := node.QueryNodeTable(tableName, querySQL, mergeSQL)
+	if queryResult.err != nil {
+		t.Error(queryResult.err)
+	}
+	queryResult.CacheTable.RowsShowCount = 3
+	t.Logf("%s", queryResult.CacheTable)
+}
+
 func TestCreateTable(t *testing.T) {
 	node := InitNode(1, "/dev/shm/target/data", 8)
 	columns := []int{0, 1, 2, 3, 4, 5}
