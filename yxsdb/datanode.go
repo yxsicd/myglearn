@@ -195,3 +195,40 @@ func (node *DataNode) QueryNodeTable(tableName int, querySQL string, mergeSQL st
 	}
 	return &QueryTaskResult{CacheTable: allQueryResult, err: err}
 }
+
+type ExecuteTaskResult struct {
+	Result *sql.Result
+	err    error
+}
+
+func (node *DataNode) ExecuteTable(tableName int, executeSQL string) *ExecuteTaskResult {
+	db, err := node.GetDB(tableName)
+	if err != nil {
+		return &ExecuteTaskResult{nil, err}
+	}
+	ret, err := db.Exec(executeSQL)
+	if err != nil {
+		return &ExecuteTaskResult{&ret, err}
+	}
+	return &ExecuteTaskResult{&ret, err}
+}
+
+func (node *DataNode) ExecuteNodeTable(tableName int, executeSQL string) *ExecuteTaskResult {
+	executeResult := make(chan *ExecuteTaskResult, len(node.ChildrenNode))
+	for _, cnode := range node.ChildrenNode {
+		go func(queryNode *DataNode, tableName int, executeSQL string) {
+			eret := queryNode.ExecuteTable(tableName, executeSQL)
+			executeResult <- eret
+		}(cnode, tableName, executeSQL)
+	}
+
+	resultCount := 0
+	for resultCount != len(node.ChildrenNode) {
+		nodeTaskResult := <-executeResult
+		resultCount++
+		if nodeTaskResult.err != nil {
+			return nodeTaskResult
+		}
+	}
+	return &ExecuteTaskResult{nil, nil}
+}

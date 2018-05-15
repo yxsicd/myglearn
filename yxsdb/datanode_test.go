@@ -9,10 +9,8 @@ import (
 
 func TestCreateTable(t *testing.T) {
 	node := InitNode(1, "/dev/shm/target/data", 8)
-	ret, err := json.Marshal(*node)
-	t.Logf("node is %s", ret)
 	columns := []int{0, 1, 2, 3, 4, 5}
-	err = node.InitCNodeTable([]int{0, 1}, 2010, columns,
+	err := node.InitCNodeTable([]int{0, 1}, 2010, columns,
 		map[int]string{0: "", 1: ""}, map[int]string{},
 		columns)
 	if err != nil {
@@ -56,10 +54,8 @@ var (
 
 func BenchmarkInsert(t *testing.B) {
 	node := InitNode(1, "/dev/shm/target/data", 8)
-	ret, err := json.Marshal(*node)
-	t.Logf("node is %s", ret)
 	columns := []int{0, 1, 2, 3, 4, 5}
-	err = node.InitCNodeTable([]int{0, 1}, 2010, columns,
+	err := node.InitCNodeTable([]int{0, 1}, 2010, columns,
 		map[int]string{0: "", 1: ""}, map[int]string{},
 		columns)
 	if err != nil {
