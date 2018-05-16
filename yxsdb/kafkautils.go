@@ -3,8 +3,6 @@ package yxsdb
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
 
 	"github.com/Shopify/sarama"
 )
@@ -83,81 +81,6 @@ func sendMessage(producer *sarama.AsyncProducer, topic string, key string, value
 	(*producer).Input() <- &sarama.ProducerMessage{Topic: topic, Key: sarama.StringEncoder(key), Value: sarama.StringEncoder(value)}
 }
 
-func doProducer() {
-	producer, err := sarama.NewAsyncProducer([]string{"localhost:9092"}, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	defer func() {
-		if err := producer.Close(); err != nil {
-			log.Fatalln(err)
-		}
-	}()
-
-	// Trap SIGINT to trigger a shutdown.
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt)
-
-	var enqueued, errors int
-ProducerLoop:
-	for i := 0; i < 1; i++ {
-		select {
-		case producer.Input() <- &sarama.ProducerMessage{Topic: "noderequest", Key: nil, Value: sarama.StringEncoder("testing 123")}:
-			enqueued++
-		case err := <-producer.Errors():
-			log.Println("Failed to produce message", err)
-			errors++
-		case <-signals:
-			break ProducerLoop
-		}
-	}
-
-	log.Printf("Enqueued: %d; errors: %d\n", enqueued, errors)
-}
-
-func doConsumer() {
-	consumer, err := sarama.NewConsumer([]string{"localhost:9092"}, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	defer func() {
-		if err := consumer.Close(); err != nil {
-			log.Fatalln(err)
-		}
-	}()
-
-	partitionConsumer, err := consumer.ConsumePartition("noderequest", 0, sarama.OffsetOldest)
-	if err != nil {
-		panic(err)
-	}
-
-	defer func() {
-		if err := partitionConsumer.Close(); err != nil {
-			log.Fatalln(err)
-		}
-	}()
-
-	// Trap SIGINT to trigger a shutdown.
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt)
-
-	consumed := 0
-ConsumerLoop:
-	for {
-		select {
-		case msg := <-partitionConsumer.Messages():
-			log.Printf("Consumed message offset %d, key=value is %s=%s", msg.Offset, msg.Key, msg.Value)
-			consumed++
-		case <-signals:
-			break ConsumerLoop
-		}
-	}
-
-	log.Printf("Consumed: %d\n", consumed)
-}
-
 func doTopicCreate(level1 int, level2 int) {
 
 	topic := fmt.Sprintf("nq_%v_%v", level1, level2)
@@ -190,9 +113,9 @@ func handleMessage(consumer *sarama.Consumer, topic string, handler func(msg *sa
 
 func addNode(maxLevel1, maxLevel2, level1, level2 int) {
 	nodeName := getNodeTopicName("node", maxLevel1, maxLevel2, level1, level2)
-	topicName := getNodeTopicName("nq", maxLevel1, maxLevel2, level1, level2)
-	subTopicName := getSubTopicName("nq", maxLevel1, maxLevel2)
-	subResponseTopicName := getSubTopicName("ns", maxLevel1, maxLevel2)
+	topicName := getNodeTopicName("request", maxLevel1, maxLevel2, level1, level2)
+	subTopicName := getSubTopicName("request", maxLevel1, maxLevel2)
+	subResponseTopicName := getSubTopicName("response", maxLevel1, maxLevel2)
 
 	nodeConsumer := getConsumer(nodeName)
 	handler := func(msg *sarama.ConsumerMessage) {
