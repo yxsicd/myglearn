@@ -9,8 +9,8 @@ import (
 
 func TestBatchSQLTable(t *testing.T) {
 	tableName := 4030
-	node := InitNode(1, "/dev/shm/target/data", 64)
-	ret := node.ExecuteNodeTable(tableName, "create table if not exists _0._4030(_0,_1,_2,_3);")
+	node := InitNode(1, "/dev/shm/target/data", 32)
+	ret := node.ExecuteNodeTable(tableName, "drop table if exists _0._4030; create table if not exists _0._4030(_0,_1,_2,_3);")
 	if ret.err != nil {
 		t.Error(ret.err)
 	}
@@ -26,6 +26,16 @@ func TestBatchSQLTable(t *testing.T) {
 	}
 	queryResult.CacheTable.RowsShowCount = 3
 	t.Logf("%s", queryResult.CacheTable)
+
+	querySQL = fmt.Sprintf("select * from _%v._%v ;", 0, tableName)
+	mergeSQL = fmt.Sprintf("select * from _%v._%v ;", 0, tableName)
+	queryResult = node.QueryNodeTable(tableName, querySQL, mergeSQL)
+	if queryResult.err != nil {
+		t.Error(queryResult.err)
+	}
+	queryResult.CacheTable.RowsShowCount = 3
+	t.Logf("%s", queryResult.CacheTable)
+
 }
 
 func TestCreateTable(t *testing.T) {

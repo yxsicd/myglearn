@@ -92,6 +92,18 @@ func (node *DataNode) GetCNodeDB(nodeID, tableName int) (*sql.DB, error) {
 	return cnode.GetDB(tableName)
 }
 
+func (node *DataNode) GetCNode(nodeID int) (*DataNode, error) {
+	node.NodeLock <- true
+	defer func() {
+		<-node.NodeLock
+	}()
+	cnode, ok := node.ChildrenNodeMap[nodeID]
+	if !ok {
+		return nil, errors.New("nodeID not found")
+	}
+	return cnode, nil
+}
+
 func (node *DataNode) InitNodeTable(database []int, tableName int, columns []int, numberColumnMap map[int]string, keyColumnMap map[int]string, indexColumns []int) error {
 	db, err := node.GetDB(tableName)
 	if err != nil {
