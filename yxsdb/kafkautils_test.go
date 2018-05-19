@@ -22,10 +22,10 @@ func TestKafka(t *testing.T) {
 	kgroup.AddAllNode(maxLevel1, maxLevel2)
 
 	consumer := kgroup.GetConsumer("master")
-	masterHandler := func(msg *sarama.ConsumerMessage) {
+	masterHandler := func(msg *sarama.ConsumerMessage, group *KafkaGroup) {
 		log.Printf("MASTER Node get message, %s=%s, offset=%v, topic=%s", msg.Key, msg.Value, msg.Offset, msg.Topic)
 	}
-	kgroup.HandleMessage(consumer, kgroup.GetSubTopicName("response", maxLevel1, maxLevel2), masterHandler)
+	kgroup.HandleMessage(consumer, kgroup.GetSubTopicName("response", maxLevel1, maxLevel2), 0, masterHandler)
 
 	masterP, _ := kgroup.GetProducer("master")
 	log.Printf("masterP is %v", masterP)
@@ -40,6 +40,6 @@ func TestKafka(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * time.Second)
 	log.Printf("end")
 }
