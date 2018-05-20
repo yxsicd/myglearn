@@ -321,6 +321,29 @@ func (table *CacheTable) String() string {
 	return retString
 }
 
+func (table *CacheTable) GetJSONTable() *CacheTable {
+	showRows := table.Rows[:]
+	var showStringRows [][]interface{}
+	for _, row := range showRows {
+		var stringRow []interface{}
+		for _, cell := range row {
+			showCell := cell
+			cellPoint := *(cell.(*interface{}))
+			bytea, ok := cellPoint.([]byte)
+			if ok {
+				showCell = fmt.Sprintf("%s", bytea)
+			}
+			stringRow = append(stringRow, showCell)
+		}
+		showStringRows = append(showStringRows, stringRow)
+	}
+	retCacheTable := CacheTable{Rows: showStringRows,
+		ColumnNames:   table.ColumnNames,
+		Columns:       table.Columns,
+		RowsShowCount: table.RowsShowCount}
+	return &retCacheTable
+}
+
 func ParseColumnName(index int, columnName string) int {
 	intColumn := strings.Replace(columnName, "_", "", -1)
 	s, err := strconv.Atoi(intColumn)
