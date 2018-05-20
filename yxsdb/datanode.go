@@ -24,6 +24,7 @@ type DataNode struct {
 	ChildrenNode    []*DataNode
 	ParentNode      *DataNode
 	ChildrenNodeMap map[int]*DataNode
+	KafkaGroup      *KafkaGroup
 }
 
 func InitNode(NodeId int, nodePath string, cNodeCount int) *DataNode {
