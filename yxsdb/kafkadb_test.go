@@ -139,7 +139,9 @@ func TestKafkaDB(t *testing.T) {
 	// masterNode.KafkaGroup.SendMessage(producer, "request", "query", "select * from _0._4030;")
 
 	masterNode.SendNodeRequest(&NodeRequest{RequestType: "execute", TableName: 4030, NodeSQL: "create table if not exists _0._4030(_0,_1,_2);"})
-	masterNode.SendNodeRequest(&NodeRequest{RequestType: "execute", TableName: 4030, NodeSQL: "insert into _0._4030 select 1,2,3;"})
+	for i := 0; i < 30; i++ {
+		masterNode.SendNodeRequest(&NodeRequest{RequestType: "execute", TableName: 4030, NodeSQL: "insert into _0._4030 select 1,2,3;"})
+	}
 	masterNode.SendNodeRequest(&NodeRequest{RequestType: "query", TableName: 4030,
 		NodeSQL:  "select count(_0) as _0 from _0._4030;",
 		MergeSQL: "select sum(_0) from _0._4030;",
