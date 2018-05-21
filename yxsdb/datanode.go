@@ -32,8 +32,8 @@ func InitNode(NodeId int, nodePath string, cNodeCount int) *DataNode {
 	node := DataNode{
 		ID:             NodeId,
 		BaseDir:        nodePath,
-		DiskDatabase:   []int{},
-		MemoryDatabase: []int{0},
+		DiskDatabase:   []int{0},
+		MemoryDatabase: []int{1},
 		NodeLock:       make(chan bool, 1),
 		ConnectionPool: make(map[string]*sql.DB),
 	}

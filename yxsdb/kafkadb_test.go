@@ -2,6 +2,7 @@ package yxsdb
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 	"testing"
@@ -19,20 +20,16 @@ func addNodeKGroup(node *DataNode) {
 		var request NodeRequest
 		json.Unmarshal(msg.Value, &request)
 		if strings.Compare(request.RequestType, "execute") == 0 {
-			log.Printf("DO execute")
+			// log.Printf("DO execute")
 			tableName := request.TableName
 			ret := node.ExecuteNodeTable(tableName, request.NodeSQL)
-			if ret.err != nil {
-				log.Printf("ret is %v", ret)
-				// return
-			}
-			log.Printf("query ret is %v", ret)
+			// log.Printf("query ret is %v", ret)
 			node.SendNodeResponse(&NodeResponse{RequestType: request.RequestType,
 				ExecuteTaskResult: *ret})
 		}
 
 		if strings.Compare(request.RequestType, "query") == 0 {
-			log.Printf("DO query")
+			// log.Printf("DO query")
 			tableName := request.TableName
 			nodeSQL := request.NodeSQL
 			mergeSQL := request.MergeSQL
@@ -40,20 +37,27 @@ func addNodeKGroup(node *DataNode) {
 				mergeSQL = nodeSQL
 			}
 			ret := node.QueryNodeTable(tableName, nodeSQL, mergeSQL)
-			if ret.err != nil {
-				log.Printf("ret is %v", ret)
-				// return
+			if ret.CacheTable != nil {
+				ret.CacheTable.RowsShowCount = 3
 			}
-			ret.CacheTable.RowsShowCount = 3
 			// log.Printf("query ret is %v", ret)
 			node.SendNodeResponse(&NodeResponse{RequestType: request.RequestType,
 				TableName:       request.TableName,
 				QueryTaskResult: QTaskResult{CacheTable: *(ret.CacheTable.GetJSONTable()), err: ret.err}})
 		}
 
+		node.ExecuteTable(0, fmt.Sprintf(`insert into _1._0 select 0,%v;
+			update _0._0 set _1=(select _1 from _1._0 where _1._0._0=_0._0._0 );
+			insert into _0._0 select * from _1._0 where _0 not in (select _0 from _0._0);
+			delete from _1._0;`, msg.Offset))
 	}
-
-	kgroup1.HandleMessage(consumer, "request", 0, 0, requestHandler)
+	node.ExecuteTable(0, fmt.Sprintf(`create table if not exists _0._0(_0 int,_1 int); create table if not exists _1._0(_0 int,_1 int);`))
+	ret, _ := node.QueryTable(0, "select _0,_1 from _0._0;")
+	beginOffset := int64(0)
+	if len(ret.Rows) > 0 {
+		beginOffset = (*(ret.Rows[0][1].(*interface{}))).(int64)
+	}
+	kgroup1.HandleMessage(consumer, "request", 0, beginOffset, requestHandler)
 
 }
 
@@ -139,7 +143,7 @@ func TestKafkaDB(t *testing.T) {
 	// masterNode.KafkaGroup.SendMessage(producer, "request", "query", "select * from _0._4030;")
 
 	masterNode.SendNodeRequest(&NodeRequest{RequestType: "execute", TableName: 4030, NodeSQL: "create table if not exists _0._4030(_0,_1,_2);"})
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 500; i++ {
 		masterNode.SendNodeRequest(&NodeRequest{RequestType: "execute", TableName: 4030, NodeSQL: "insert into _0._4030 select 1,2,3;"})
 	}
 	masterNode.SendNodeRequest(&NodeRequest{RequestType: "query", TableName: 4030,
