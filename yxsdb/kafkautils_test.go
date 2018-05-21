@@ -25,7 +25,7 @@ func TestKafka(t *testing.T) {
 	masterHandler := func(msg *sarama.ConsumerMessage, group *KafkaGroup) {
 		log.Printf("MASTER Node get message, %s=%s, offset=%v, topic=%s", msg.Key, msg.Value, msg.Offset, msg.Topic)
 	}
-	kgroup.HandleMessage(consumer, kgroup.GetSubTopicName("response", maxLevel1, maxLevel2), 0, masterHandler)
+	kgroup.HandleMessage(consumer, kgroup.GetSubTopicName("response", maxLevel1, maxLevel2), 0, 0, masterHandler)
 
 	masterP, _ := kgroup.GetProducer("master")
 	log.Printf("masterP is %v", masterP)

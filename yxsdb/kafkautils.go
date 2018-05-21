@@ -104,9 +104,9 @@ func (group *KafkaGroup) BatchTopicCreate(maxLevel1 int, maxLevel2 int) {
 	}
 }
 
-func (group *KafkaGroup) HandleMessage(consumer *sarama.Consumer, topic string, partition int32, handler func(msg *sarama.ConsumerMessage, group *KafkaGroup)) {
+func (group *KafkaGroup) HandleMessage(consumer *sarama.Consumer, topic string, partition int32, beginOffset int64, handler func(msg *sarama.ConsumerMessage, group *KafkaGroup)) {
 	go func() {
-		partitionConsumer, err := (*consumer).ConsumePartition(topic, partition, sarama.OffsetOldest)
+		partitionConsumer, err := (*consumer).ConsumePartition(topic, partition, beginOffset)
 		if err != nil {
 			log.Printf("err is %v", err)
 			return
@@ -133,8 +133,8 @@ func (group *KafkaGroup) AddNode(maxLevel1, maxLevel2, level1, level2 int) {
 		nodeProducer, _ := group.GetProducer(nodeName)
 		group.SendMessage(nodeProducer, subResponseTopicName, fmt.Sprintf("NODE=%s, done!!!", nodeName), "value")
 	}
-	group.HandleMessage(nodeConsumer, topicName, 0, handler)
-	group.HandleMessage(nodeConsumer, subTopicName, 0, handler)
+	group.HandleMessage(nodeConsumer, topicName, 0, 0, handler)
+	group.HandleMessage(nodeConsumer, subTopicName, 0, 0, handler)
 
 }
 

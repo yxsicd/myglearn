@@ -53,7 +53,7 @@ func addNodeKGroup(node *DataNode) {
 
 	}
 
-	kgroup1.HandleMessage(consumer, "request", 0, requestHandler)
+	kgroup1.HandleMessage(consumer, "request", 0, 0, requestHandler)
 
 }
 
@@ -70,7 +70,7 @@ func addMasterNodeKGroup(node *DataNode) {
 
 	}
 
-	kgroup1.HandleMessage(consumer, "response", 0, responseHandler)
+	kgroup1.HandleMessage(consumer, "response", 0, 0, responseHandler)
 
 }
 
