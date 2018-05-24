@@ -17,14 +17,14 @@ func addNodeKGroup(node *DataNode) {
 	consumer := kgroup1.GetConsumer("node")
 	requestHandler := func(msg *sarama.ConsumerMessage, group *KafkaGroup) {
 		log.Printf("Node=%v get message, key=%s   value=%s   offset=%v, topic=%s", node.ID, msg.Key, msg.Value, msg.Offset, msg.Topic)
-		var request NodeRequest
+		var request NodeRequestValue
 		json.Unmarshal(msg.Value, &request)
 		if strings.Compare(request.RequestType, "execute") == 0 {
 			// log.Printf("DO execute")
 			tableName := request.TableName
 			ret := node.ExecuteNodeTable(tableName, request.NodeSQL)
 			// log.Printf("query ret is %v", ret)
-			node.SendNodeResponse(&NodeResponse{RequestType: request.RequestType,
+			node.SendNodeResponse(&NodeResponseValue{RequestType: request.RequestType,
 				ExecuteTaskResult: *ret})
 		}
 
@@ -41,7 +41,7 @@ func addNodeKGroup(node *DataNode) {
 				ret.CacheTable.RowsShowCount = 3
 			}
 			// log.Printf("query ret is %v", ret)
-			node.SendNodeResponse(&NodeResponse{RequestType: request.RequestType,
+			node.SendNodeResponse(&NodeResponseValue{RequestType: request.RequestType,
 				TableName:       request.TableName,
 				QueryTaskResult: QTaskResult{CacheTable: *(ret.CacheTable.GetJSONTable()), err: ret.err}})
 		}
@@ -68,9 +68,9 @@ func addMasterNodeKGroup(node *DataNode) {
 
 	responseHandler := func(msg *sarama.ConsumerMessage, group *KafkaGroup) {
 		// log.Printf("Node=%v get message, key=%s   value=%s   offset=%v, topic=%s", node.ID, msg.Key, msg.Value, msg.Offset, msg.Topic)
-		var response NodeResponse
+		var response NodeResponseValue
 		json.Unmarshal(msg.Value, &response)
-		log.Printf("unmarshal %s is %v", msg.Value, response.QueryTaskResult)
+		log.Printf("msg=%s", msg)
 
 	}
 
@@ -78,7 +78,13 @@ func addMasterNodeKGroup(node *DataNode) {
 
 }
 
-type NodeRequest struct {
+type NodeRequestKey struct {
+	RequestType string
+	RequestID   string
+	TableName   int
+}
+
+type NodeRequestValue struct {
 	RequestType string
 	TableName   int
 	NodeSQL     string
@@ -90,14 +96,14 @@ type QTaskResult struct {
 	err        error
 }
 
-type NodeResponse struct {
+type NodeResponseValue struct {
 	RequestType       string
 	TableName         int
 	QueryTaskResult   QTaskResult
 	ExecuteTaskResult ExecuteTaskResult
 }
 
-func (node *DataNode) SendNodeRequest(request *NodeRequest) error {
+func (node *DataNode) SendNodeRequest(request *NodeRequestValue) error {
 	retString, err := json.Marshal(request)
 	if err != nil {
 		return err
@@ -110,7 +116,7 @@ func (node *DataNode) SendNodeRequest(request *NodeRequest) error {
 	return nil
 }
 
-func (node *DataNode) SendNodeResponse(response *NodeResponse) error {
+func (node *DataNode) SendNodeResponse(response *NodeResponseValue) error {
 	retString, err := json.Marshal(response)
 	if err != nil {
 		return err
@@ -142,11 +148,11 @@ func TestKafkaDB(t *testing.T) {
 	// masterNode.KafkaGroup.SendMessage(producer, "request", "execute", "insert into _0._4030 select 1,2,3;")
 	// masterNode.KafkaGroup.SendMessage(producer, "request", "query", "select * from _0._4030;")
 
-	masterNode.SendNodeRequest(&NodeRequest{RequestType: "execute", TableName: 4030, NodeSQL: "create table if not exists _0._4030(_0,_1,_2);"})
-	for i := 0; i < 500; i++ {
-		masterNode.SendNodeRequest(&NodeRequest{RequestType: "execute", TableName: 4030, NodeSQL: "insert into _0._4030 select 1,2,3;"})
+	masterNode.SendNodeRequest(&NodeRequestValue{RequestType: "execute", TableName: 4030, NodeSQL: "create table if not exists _0._4030(_0,_1,_2);"})
+	for i := 0; i < 5; i++ {
+		masterNode.SendNodeRequest(&NodeRequestValue{RequestType: "execute", TableName: 4030, NodeSQL: "insert into _0._4030 select 1,2,3;"})
 	}
-	masterNode.SendNodeRequest(&NodeRequest{RequestType: "query", TableName: 4030,
+	masterNode.SendNodeRequest(&NodeRequestValue{RequestType: "query", TableName: 4030,
 		NodeSQL:  "select count(_0) as _0 from _0._4030;",
 		MergeSQL: "select sum(_0) from _0._4030;",
 	})
