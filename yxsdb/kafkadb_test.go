@@ -88,6 +88,10 @@ type NodeRequestKey struct {
 	TableName   int
 }
 
+func (requestKey *NodeRequestKey) GetNodeResponseKey() *NodeResponseKey {
+	return &NodeResponseKey{RequestType: requestKey.RequestType, RequestID: requestKey.RequestID, TableName: requestKey.TableName}
+}
+
 type NodeRequestValue struct {
 	NodeSQL  string
 	MergeSQL string
